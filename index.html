@@ -133,6 +133,20 @@ table.t{width:100%;border-collapse:collapse;font-size:13px}table.t th{text-align
 .btn:active,.chip:active,.iconbtn:active,#tabs button:active,.seg button:active{transform:scale(.94);opacity:.8}
 .row.tap:active{background:var(--card2)}
 
+#sheet{position:fixed}.sheetx{position:absolute;top:10px;right:12px;width:34px;height:34px;border-radius:50%;border:0;background:var(--card2);color:var(--tx2);font-size:15px;display:grid;place-items:center;z-index:2}.sheetx:active{transform:scale(.9)}
+
+
+.frow{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 8px}
+.sel{flex:1 1 0;min-width:0;background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px}
+.cmpbar{position:fixed;left:12px;right:12px;bottom:88px;max-width:560px;margin:0 auto;box-shadow:0 6px 24px rgba(0,0,0,.5);z-index:5;display:flex;gap:6px;align-items:center;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:0 0 8px}
+.btn.sm{padding:7px 12px;font-size:13px}.btn[disabled]{opacity:.4;pointer-events:none}
+.ck{flex:none;width:22px;height:22px;border:2px solid var(--line);border-radius:6px;display:grid;place-items:center;margin-right:10px;font-size:14px;font-weight:800;color:#04130d}
+.ck.on{background:var(--acc);border-color:var(--acc)}.row.picked{background:var(--card2)}
+.cmpwrap{overflow-x:auto}table.cmp td,table.cmp th{white-space:nowrap;vertical-align:top}table.cmp td.lbl{color:var(--tx2);font-size:12px;white-space:normal;min-width:84px}
+td.cbest{background:rgba(46,204,113,.16)}td.cworst{background:rgba(255,92,92,.16)}
+.cbar{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:13px}.cbar .bl{width:70px;flex:none;font-weight:600}.cbar .bt{flex:1;height:10px;background:var(--card2);border-radius:5px;overflow:hidden}.cbar .bt i{display:block;height:100%;border-radius:5px}.cbar i.up{background:var(--acc)}.cbar i.dn{background:#ff5c5c}.cbar .bv{width:60px;text-align:right;flex:none}
+.frow input[type=date]{flex:1 1 130px;min-width:130px}
+
 </style>
 </head>
 <body>
@@ -252,7 +266,7 @@ function load(action, params, paint, force, quiet) {
   }).catch(function (e) { if (token === S.token && !quiet) { if (c) { toast('Could not refresh: showing the last copy'); var n = $('#stalenote'); if (n) n.remove(); } else if (m) m.innerHTML = '<div class="empty">' + esc(e.message) + '<div class="btns" style="justify-content:center"><button class="btn sm" onclick="go(S.tab)">Try again</button></div></div>'; } });
 }
 function toast(msg) { var t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(function () { t.classList.remove('on'); }, 3200); }
-function sheet(html) { $('#sheet').innerHTML = '<div class="grab"></div>' + html; $('#sheet').classList.add('on'); $('#sheetbg').classList.add('on'); $('#sheet').scrollTop = 0; }
+function sheet(html) { $('#sheet').innerHTML = '<div class="grab"></div><button class="sheetx" onclick="closeSheet()" aria-label="Close">✕</button>' + html; $('#sheet').classList.add('on'); $('#sheetbg').classList.add('on'); $('#sheet').scrollTop = 0; }
 function closeSheet() { $('#sheet').classList.remove('on'); $('#sheetbg').classList.remove('on'); }
 function busy(btn, on) { if (!btn) return; btn.disabled = on; if (on) { btn._t = btn.textContent; btn.innerHTML = '<span class="spin"></span>'; } else btn.textContent = btn._t || btn.textContent; }
 function can(p) { return S.who && S.who.perms.indexOf(p) >= 0; }
@@ -320,7 +334,7 @@ function liveRow(r) {
   var q = S.live && S.live.quotes && S.live.quotes[r.asset]; if (!q || !r.price || (r.priceCcy && q.ccy && q.ccy !== r.priceCcy)) return r;
   var f = q.p / r.price, o = {}; for (var k in r) o[k] = r[k];
   o.valueLocal = r.valueLocal ? r.valueLocal * f : r.valueLocal; o.valueLocalLive = true; o.price = q.p; o.priceDate = (q.t || '').slice(0, 10) || r.priceDate; o.valueUsd = r.valueUsd * f; o.value = r.value * f; if (r.valueLocal !== null && r.valueLocal !== undefined) o.valueLocal = r.valueLocal * f; o.unrealizedUsd = o.valueUsd - r.costUsd; o.unrealizedPct = r.costUsd > 0 ? (o.valueUsd / r.costUsd - 1) * 100 : null;
-  if (q.prev) { o.dayPct = (q.p / q.prev - 1) * 100; o.dayUsd = o.valueUsd * (1 - q.prev / q.p); }
+  if (q.prev) { o.prevPrice = q.prev; o.dayPct = (q.p / q.prev - 1) * 100; o.dayUsd = o.valueUsd * (1 - q.prev / q.p); }
   o.live = true; o.liveAt = q.t; o.state = q.state; o.delay = q.delay; return o;
 }
 function liveDelta() { if (!S.live || !S.hold) return null; var d = 0, n = 0; S.hold.rows.forEach(function (r) { var l = liveRow(r); if (l.live) { d += l.valueUsd - r.valueUsd; n++; } }); return n ? d : null; }
@@ -333,6 +347,9 @@ function fetchLive(done) {
 }
 function liveRefresh() { fetchLive(function () { if (S.tab === 'home' && !S.stack.length && S.ov) drawHome(S.ov); else if (S.tab === 'holdings' && !S.stack.length && S.hold && $('#hl')) holdList(); }); }
 setInterval(function () { if (document.hidden || !S.who || $('#sheet').classList.contains('on') || S.ticks > 40) return; if ((S.tab === 'home' || S.tab === 'holdings') && !S.stack.length) { S.ticks++; liveRefresh(); } }, 60000);
+
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); });
+
 
 /* ---------- Home ---------- */
 var HOME = { period: 'ALL', view: 'value', custom: null };
@@ -384,7 +401,7 @@ function customPeriod() {
 function journeyCard(j) {
   var ms = (j.milestones || []).map(function (m) { return '<span class="badge ' + (m.passed ? 'OK' : '') + '">' + (m.passed ? '✓ ' : '') + usd(m.amount) + '</span>'; }).join(' ');
   var gap = j.gapToPlan;
-  return '<div class="card tap" onclick="go(\'plan\')"><h3>Journey to ' + usd(j.goal) + ' · ' + dshort(j.targetDate) + '</h3><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="num" style="font-size:26px;font-weight:700">' + pcp(j.progressPct) + '</span><span class="mut sm">' + j.monthsLeft + ' months left</span></div><div class="bar" style="margin:8px 0 12px;height:10px"><i style="width:' + Math.min(100, j.progressPct) + '%"></i></div>'
+  return '<div class="card tap" onclick="go(\'plan\')"><h3>Journey to ' + usd(j.goal) + ' · ' + dshort(j.targetDate) + '</h3><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="num" style="font-size:26px;font-weight:700">' + pcp(j.progressPct) + '</span><span class="mut sm">' + j.monthsLeft + ' months left</span></div><div class="cbar" style="margin:8px 0 12px;height:10px"><i style="width:' + Math.min(100, j.progressPct) + '%"></i></div>'
     + kv('Plan says you should be at', usd(j.planValueToday)) + kv('You are', '<span class="' + cls(gap) + '">' + (gap >= 0 ? usd(gap) + ' ahead' : usd(-gap) + ' behind') + '</span>') + kv('At your current pace (' + pcp(j.rateUsedPct) + ')', usd(j.projectedAtCurrentRate)) + kv('Return you need from here', pcp(j.requiredReturnPct)) + kv('Monthly you need at that pace', usd(j.requiredMonthlyAtRate)) + '<div style="margin-top:10px">' + ms + '</div></div>';
 }
 function loanCard(l) {
@@ -393,17 +410,110 @@ function loanCard(l) {
 
 /* ---------- Holdings ---------- */
 var HLD = { q: '', sort: 'value', dir: -1, mode: 'open' }, CLD = { q: '', sort: 'date', dir: -1 };
+var FILT = {};   /* { dimension: [chosen values] }  - same filters on open and closed positions */
+var DIMS = [['region', 'Region'], ['broker', 'Broker'], ['account', 'Account'], ['sector', 'Sector'], ['group', 'Theme'], ['cap', 'Size'], ['tier', 'Tier'], ['assetClass', 'Class'], ['currency', 'Currency']];
 SCREENS.holdings = function () {
   setTop('Holdings', '', false, refreshBtn());
   load('holdings', {}, function (d, meta) { S.hold = d; drawHold(); liveRefresh(); }, S.force); S.force = false;
 };
 function healthBadge(r) { return r.health && r.health !== 'OK' ? '<span class="badge ' + r.health + '">' + r.health + '</span>' : ''; }
+function passF(r) { for (var k in FILT) { if (FILT[k].length && FILT[k].indexOf((r.dims || {})[k] || '') < 0) return false; } return true; }
+function filtN() { var n = 0; for (var k in FILT) n += FILT[k].length; return n; }
+function filtBar() {
+  var pills = [], k; for (k in FILT) FILT[k].forEach(function (v) { pills.push('<button class="chip on" onclick="toggleF(\'' + k + '\',\'' + esc(v).replace(/'/g, "\\'") + '\')">' + esc(v || '(none)') + ' ✕</button>'); });
+  return '<div class="chips"><button class="chip ' + (filtN() ? 'on' : '') + '" onclick="filterSheet()">⚲ Filter' + (filtN() ? ' · ' + filtN() : '') + '</button>' + pills.join('') + (filtN() ? '<button class="chip" onclick="FILT={};refreshHold()">Clear</button>' : '') + '</div>';
+}
+function toggleF(k, v) { var a = FILT[k] = FILT[k] || [], i = a.indexOf(v); if (i >= 0) a.splice(i, 1); else a.push(v); if (!a.length) delete FILT[k]; refreshHold(); }
+function refreshHold() { closeSheet(); if (HLD.mode === 'closed') drawClosed(); else drawHold(); }
+function filterSheet(dim) {
+  var rows = HLD.mode === 'closed' ? ((S.mem.closed || {}).rows || []) : hrows(), h = '<h2>Filter</h2><p class="mut sm">Choose several values; positions must match every group you use. Totals above the list follow your choice.</p>';
+  h += '<div class="chips" style="flex-wrap:wrap">' + DIMS.map(function (d) { return '<button class="chip ' + ((dim || DIMS[0][0]) === d[0] ? 'on' : '') + '" onclick="filterSheet(\'' + d[0] + '\')">' + d[1] + (FILT[d[0]] ? ' · ' + FILT[d[0]].length : '') + '</button>'; }).join('') + '</div>';
+  dim = dim || DIMS[0][0]; var cnt = {}; rows.forEach(function (r) { var v = (r.dims || {})[dim] || ''; cnt[v] = (cnt[v] || 0) + 1; });
+  h += '<div style="margin-top:8px">' + Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).map(function (v) { var on = (FILT[dim] || []).indexOf(v) >= 0; return '<div class="row tap" onclick="toggleF2(\'' + dim + '\',\'' + esc(v).replace(/'/g, "\\'") + '\')"><div class="grow"><div class="t">' + esc(v || '(none)') + '</div></div><span class="tiny">' + cnt[v] + '</span><span style="width:22px;text-align:right;color:var(--acc)">' + (on ? '✓' : '') + '</span></div>'; }).join('') + '</div>';
+  h += '<div class="btns"><button class="btn" onclick="refreshHold()">Show results</button><button class="btn ghost" onclick="FILT={};refreshHold()">Clear all</button></div>';
+  sheet(h);
+}
+function toggleF2(k, v) { var a = FILT[k] = FILT[k] || [], i = a.indexOf(v); if (i >= 0) a.splice(i, 1); else a.push(v); if (!a.length) delete FILT[k]; filterSheet(k); }
+
+/* v7-style filters: ticker/name (several with commas), broker, region, winners/losers; closed also has dates */
+var FB = { broker: '', region: '', res: '' }, CRANGE = { from: '', to: '' }, CMP = { on: false, sel: [] };
+function matchQ(r, q) { var ts = q.toLowerCase().split(',').map(function (t) { return t.trim(); }).filter(Boolean); if (!ts.length) return true; var hay = (r.asset + ' ' + r.name + ' ' + r.acct + ' ' + (r.sector || '')).toLowerCase(); return ts.some(function (t) { return hay.indexOf(t) >= 0; }); }
+function passB(r, closed) {
+  var d = r.dims || {}; if (FB.broker && d.broker !== FB.broker) return false; if (FB.region && d.region !== FB.region) return false;
+  var g = closed ? r.gainUsd : r.unrealizedUsd; if (FB.res === 'win' && !(g > 0)) return false; if (FB.res === 'loss' && !(g < 0)) return false;
+  if (closed) { if (CRANGE.from && String(r.lastSell).slice(0, 10) < CRANGE.from) return false; if (CRANGE.to && String(r.lastSell).slice(0, 10) > CRANGE.to) return false; }
+  return true;
+}
+function selF(key, label, rows, redraw) {
+  var cnt = {}; rows.forEach(function (r) { var v = (r.dims || {})[key]; if (v) cnt[v] = 1; });
+  return '<select class="sel" onchange="FB.' + key + '=this.value;' + redraw + '()"><option value="">All ' + label + '</option>' + Object.keys(cnt).sort().map(function (v) { return '<option' + (FB[key] === v ? ' selected' : '') + ' value="' + esc(v) + '">' + esc(v) + '</option>'; }).join('') + '</select>';
+}
+function filterRow(rows, redraw, closed) {
+  var h = '<div class="frow">' + selF('broker', 'brokers', rows, redraw) + selF('region', 'regions', rows, redraw)
+    + '<select class="sel" onchange="FB.res=this.value;' + redraw + '()"><option value="">All results</option><option value="win"' + (FB.res === 'win' ? ' selected' : '') + '>Winners</option><option value="loss"' + (FB.res === 'loss' ? ' selected' : '') + '>Losers</option></select></div>';
+  if (closed) h += '<div class="frow"><span class="tiny">Sold from</span><input type="date" class="sel" value="' + CRANGE.from + '" onchange="CRANGE.from=this.value;drawClosed()"><span class="tiny">to</span><input type="date" class="sel" value="' + CRANGE.to + '" onchange="CRANGE.to=this.value;drawClosed()">'
+    + '<button class="chip" onclick="closedPreset(\'ytd\')">YTD</button><button class="chip" onclick="closedPreset(\'ly\')">Last year</button><button class="chip" onclick="closedPreset(\'all\')">All</button></div>';
+  return h;
+}
+function isoD(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+function closedPreset(p) { var t = new Date(); if (p === 'ytd') { CRANGE = { from: isoD(new Date(t.getFullYear(), 0, 1)), to: isoD(t) }; } else if (p === 'ly') { CRANGE = { from: isoD(new Date(t.getFullYear() - 1, 0, 1)), to: isoD(new Date(t.getFullYear() - 1, 11, 31)) }; } else CRANGE = { from: '', to: '' }; drawClosed(); }
+function filtAny() { return filtN() || FB.broker || FB.region || FB.res || (HLD.mode === 'closed' ? (CLD.q || CRANGE.from || CRANGE.to) : HLD.q); }
+function clearAll() { HLD.q = ''; CLD.q = ''; FB = { broker: '', region: '', res: '' }; FILT = {}; CRANGE = { from: '', to: '' }; refreshHold(); }
+/* compare: tick 2 to 4 open holdings, then look at them side by side */
+function cmpMode() { CMP.on = !CMP.on; CMP.sel = []; drawHold(); }
+function cmpTick(k) { var i = CMP.sel.indexOf(k); if (i >= 0) CMP.sel.splice(i, 1); else if (CMP.sel.length < 4) CMP.sel.push(k); else toast && toast('Up to 4 at a time'); holdList(); }
+function cmpOnly() { var rows = hrows().filter(function (r) { return CMP.sel.indexOf(r.key) >= 0; }); HLD.q = rows.map(function (r) { return r.asset; }).join(', '); CMP.on = false; CMP.sel = []; drawHold(); }
+function cmpBar() {
+  var n = CMP.sel.length; return '<div class="cmpbar"><span class="grow">' + n + ' selected' + (n < 2 ? ' · pick at least 2' : '') + '</span><button class="btn sm" ' + (n < 2 ? 'disabled' : '') + ' onclick="cmpShow()">Compare</button><button class="btn ghost sm" ' + (n < 1 ? 'disabled' : '') + ' onclick="cmpOnly()">Show only these</button><button class="btn ghost sm" onclick="cmpMode()">Cancel</button></div>';
+}
+function cmpShow() {
+  var asOf = S.hold.asOf, rows = hrows().filter(function (r) { return CMP.sel.indexOf(r.key) >= 0; }); if (rows.length < 2) return;
+  var m = rows.map(function (r) {
+    var fl = ((S.hold.flows || {})[r.key] || []), first = fl.reduce(function (a, f) { return !a || f[0] < a ? f[0] : a; }, ''), x = xirrFor([r.key], r.valueUsd, asOf), tot = r.unrealizedUsd + (r.realizedUsd || 0) + (r.incomeUsd || 0);
+    return { r: r, first: first, days: first ? V8_dayNum(asOf) - V8_dayNum(first) : null, x: x ? x.x : null, tot: tot, totPct: r.costUsd > 0 ? tot / r.costUsd * 100 : null };
+  });
+  var defs = [
+    ['Value', function (o) { var r = o.r; return (r.currency && r.currency !== 'USD' && r.valueLocal != null ? mny(r.valueLocal, r.currency) + '<div class="usd2">' + usd(r.valueUsd) + '</div>' : usd(r.valueUsd)); }, null],
+    ['Cost', function (o) { return usd(o.r.costUsd); }, null],
+    ['Weight', function (o) { return pcp(o.r.weightPct); }, null],
+    ['Unrealised', function (o) { return usdS(o.r.unrealizedUsd); }, function (o) { return o.r.unrealizedUsd; }],
+    ['Return on cost', function (o) { return pc(o.r.unrealizedPct, 1); }, function (o) { return o.r.unrealizedPct; }],
+    ['Total return (with sales, income)', function (o) { return usdS(o.tot) + '<div class="usd2">' + pc(o.totPct, 1) + '</div>'; }, function (o) { return o.totPct; }],
+    ['XIRR', function (o) { return o.x === null ? '–' : pc(o.x, 1) + (o.days !== null && o.days < 365 ? '<div class="usd2">under a year</div>' : ''); }, function (o) { return o.x; }],
+    ['Today', function (o) { return pc(o.r.dayPct, 2); }, function (o) { return o.r.dayPct; }],
+    ['Held since', function (o) { return o.first ? dshort(o.first) + '<div class="usd2">' + (o.days >= 365 ? (o.days / 365).toFixed(1) + ' yrs' : o.days + ' days') + '</div>' : '–'; }, null]
+  ];
+  var h = '<h2>Side by side</h2><p class="mut sm">Dollar figures so different currencies compare fairly. Green is best in the row, red is worst.</p><div class="cmpwrap"><table class="t cmp"><tr><th></th>' + m.map(function (o) { return '<th class="r">' + esc(o.r.asset) + '<div class="usd2">' + esc(o.r.acct) + '</div></th>'; }).join('') + '</tr>';
+  defs.forEach(function (d) {
+    var vals = d[2] ? m.map(d[2]) : null, mx = null, mn = null;
+    if (vals) { var ok = vals.filter(function (v) { return v !== null && v !== undefined && isFinite(v); }); if (ok.length > 1) { mx = Math.max.apply(null, ok); mn = Math.min.apply(null, ok); if (mx === mn) mx = mn = null; } }
+    h += '<tr><td class="lbl">' + d[0] + '</td>' + m.map(function (o, i) { var c = vals && mx !== null && vals[i] === mx ? 'cbest' : vals && mn !== null && vals[i] === mn ? 'cworst' : ''; return '<td class="r ' + c + '">' + d[1](o) + '</td>'; }).join('') + '</tr>';
+  });
+  h += '</table></div>';
+  var big = Math.max.apply(null, m.map(function (o) { return Math.abs(o.r.unrealizedPct || 0); })) || 1;
+  h += '<h3 style="margin-top:14px">Return on cost</h3>' + m.map(function (o) { var v = o.r.unrealizedPct || 0; return '<div class="cbar"><span class="bl">' + esc(o.r.asset) + '</span><span class="bt"><i class="' + (v >= 0 ? 'up' : 'dn') + '" style="width:' + Math.max(2, Math.abs(v) / big * 100) + '%"></i></span><span class="bv ' + cls(v) + '">' + pc(v, 1) + '</span></div>'; }).join('');
+  sheet(h);
+}
+/* a return for whatever is filtered: every dollar in and out of those positions, plus what they are worth now */
+function xirrFor(keys, endValue, asOf) {
+  var fl = (S.hold && S.hold.flows) || {}, cfs = [], neg = 0; keys.forEach(function (k) { (fl[k] || []).forEach(function (f) { cfs.push({ date: f[0], amount: f[1] }); if (f[1] < 0) neg++; }); });
+  if (!neg) return null; if (endValue > 0) cfs.push({ date: asOf, amount: endValue });
+  var first = cfs.reduce(function (m, c) { return c.date < m ? c.date : m; }, asOf), days = V8_dayNum(asOf) - V8_dayNum(first);
+  var x = V8_xirr(cfs); return x === null ? null : { x: x * 100, short: days < 365 };
+}
+function sumBox(items) { return '<div class="card" style="padding:12px"><div class="grid2">' + items.map(function (i) { return '<div class="stat"><div class="k">' + i[0] + '</div><div class="v ' + (i[2] || '') + '">' + i[1] + '</div>' + (i[3] ? '<div class="tiny">' + i[3] + '</div>' : '') + '</div>'; }).join('') + '</div></div>'; }
+function holdSummary(rows) {
+  var val = 0, cost = 0, day = 0, dayBase = 0, real = 0, inc = 0, n = rows.length, keys = [];
+  rows.forEach(function (r) { val += r.valueUsd; cost += r.costUsd; real += r.realizedUsd; inc += r.incomeUsd; keys.push(r.key); if (r.dayUsd !== null && r.dayUsd !== undefined) { day += r.dayUsd; dayBase += r.valueUsd - r.dayUsd; } });
+  var un = val - cost, tot = un + real + inc, x = xirrFor(keys, val, S.hold.asOf), share = S.ov ? val / (S.ov.valueUsd + (liveDelta() || 0)) * 100 : null;
+  return sumBox([['Value', usd(val), '', n + ' position' + (n === 1 ? '' : 's') + (share !== null ? ' · ' + pcp(share) + ' of portfolio' : '')], ['Today', usdS(day), cls(day), pc(dayBase ? day / dayBase * 100 : 0, 2)], ['Unrealised', usdS(un), cls(un), pc(cost > 0 ? un / cost * 100 : null, 1) + ' on cost ' + usd(cost)], ['Total return', usdS(tot), cls(tot), 'with realised ' + usdS(real) + ' and income ' + usd(inc)], ['XIRR', x ? pc(x.x, 1) : '–', x ? cls(x.x) : '', x ? (x.short ? 'under a year: treat with care' : 'positions still held, incl. past sales and income') : 'needs money in and out'], ['Cost', usd(cost), '', 'what you paid for what you hold']]);
+}
 var HSORT = { value: function (r) { return r.valueUsd; }, gain: function (r) { return r.unrealizedUsd; }, pct: function (r) { return r.unrealizedPct; }, day: function (r) { return r.dayPct; }, weight: function (r) { return r.weightPct; }, name: function (r) { return r.asset; }, acct: function (r) { return r.acct + r.asset; }, sector: function (r) { return (r.sector || '') + r.asset; } };
 function holdSort(k) { setSort(HLD, k, (k === 'name' || k === 'acct' || k === 'sector') ? 1 : -1); drawHold(); }
 function drawHold() {
   var d = S.hold; if (!d) return;
   if (HLD.mode === 'closed') return drawClosed();
-  var h = '<div class="seg"><button class="on">Open</button><button onclick="HLD.mode=\'closed\';drawHold()">Closed</button></div><input class="search" placeholder="Search name, sector, account" value="' + esc(HLD.q) + '" oninput="HLD.q=this.value;holdList()">'
+  var h = '<div class="seg"><button class="on">Open</button><button onclick="HLD.mode=\'closed\';drawHold()">Closed</button></div>' + filtBar() + filterRow(hrows(), 'drawHold') + '<input class="search" placeholder="Ticker or name; several with commas, e.g. TCS, INFY" value="' + esc(HLD.q) + '" oninput="HLD.q=this.value;holdList()"><div class="frow"><button class="chip ' + (CMP.on ? 'on' : '') + '" onclick="cmpMode()">☑ Select to compare</button>' + (filtAny() ? '<button class="chip" onclick="clearAll()">Clear all filters</button>' : '') + '</div><div id="hs"></div>'
     + sortBar(HLD, [['value', 'Value'], ['gain', 'Gain'], ['pct', 'Gain %'], ['day', 'Today'], ['weight', 'Weight'], ['name', 'A–Z'], ['acct', 'Account'], ['sector', 'Sector']], 'holdSort') + '<div id="hl"></div>';
   $('#main').innerHTML = h; holdList();
 }
@@ -414,22 +524,37 @@ function holdRight(r) {
   var g = r.valueLocal - r.cost;
   return '<div class="t">' + mny(r.valueLocal, r.currency) + '</div><div class="s ' + cls(g) + '">' + mnyS(g, r.currency) + ' · ' + pc(r.unrealizedPct, 0) + '</div><div class="usd2">' + usd(r.valueUsd) + ' · ' + usdS(r.unrealizedUsd) + '</div>';
 }
+/* today's price and how much it moved, green up and red down */
+function priceLine(r) {
+  if (r.price === null || r.price === undefined) return '';
+  var ch = (r.prevPrice !== null && r.prevPrice !== undefined) ? r.price - r.prevPrice : null, p = r.dayPct;
+  return '<span class="num">' + num(r.price, 2) + '</span> ' + (ch === null ? '' : '<span class="' + cls(ch) + '">' + (ch > 0 ? '▲' : ch < 0 ? '▼' : '') + num(Math.abs(ch), 2) + ' (' + pc(p, 2) + ')</span>');
+}
 function holdList() {
-  var d = S.hold, q = HLD.q.toLowerCase(), rows = sorted(hrows().filter(function (r) { return !q || (r.asset + ' ' + r.name + ' ' + r.acct + ' ' + (r.sector || '')).toLowerCase().indexOf(q) >= 0; }), HLD, HSORT);
-  $('#hl').innerHTML = '<div class="card" style="padding:4px 16px">' + (rows.map(function (r) {
-    return '<div class="row tap" onclick="holdDetail(\'' + esc(r.key) + '\')"><div class="avatar">' + esc(r.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(r.asset) + ' ' + healthBadge(r) + (r.dayPct !== null && r.dayPct !== undefined ? ' <span class="tiny ' + cls(r.dayPct) + '">' + pc(r.dayPct, 1) + ' today</span>' : '') + '</div><div class="s">' + (r.live ? '<span class="livetag">live</span>' : '') + esc(r.name === r.asset ? (r.sector || '') : r.name) + ' · ' + pcp(r.weightPct) + '</div></div><div class="r">' + holdRight(r) + '</div></div>';
-  }).join('') || '<div class="empty">Nothing matches</div>') + '</div><div class="tiny" style="text-align:center">' + rows.length + ' positions · ' + usd(d.totalUsd) + ' at last close' + (S.live ? ' · live ' + liveStamp() + ' (' + S.live.got + '/' + S.live.asked + ' quotes; some exchanges are delayed by Yahoo)' : '') + '</div>';
+  var d = S.hold, pool = hrows().filter(passF).filter(function (r) { return passB(r, false); }), rows = sorted(pool.filter(function (r) { return matchQ(r, HLD.q); }), HLD, HSORT);
+  var hs = $('#hs'); if (hs) hs.innerHTML = holdSummary(HLD.q ? rows : pool);
+  $('#hl').innerHTML = (CMP.on ? cmpBar() : '') + '<div class="card" style="padding:4px 16px">' + (rows.map(function (r) {
+    var on = CMP.sel.indexOf(r.key) >= 0;
+    return '<div class="row tap' + (on ? ' picked' : '') + '" onclick="' + (CMP.on ? 'cmpTick(\'' + esc(r.key) + '\')' : 'holdDetail(\'' + esc(r.key) + '\')') + '">' + (CMP.on ? '<span class="ck ' + (on ? 'on' : '') + '">' + (on ? '✓' : '') + '</span>' : '') + '<div class="avatar">' + esc(r.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(r.asset) + ' ' + healthBadge(r) + '</div><div class="s px" style="white-space:normal">' + (r.live ? '<span class="livetag">live</span>' : '') + priceLine(r) + '</div><div class="s">' + esc(r.name === r.asset ? (r.sector || '') : r.name) + ' · ' + pcp(r.weightPct) + '</div></div><div class="r">' + holdRight(r) + '</div></div>';
+  }).join('') || '<div class="empty">Nothing matches</div>') + '</div><div class="tiny" style="text-align:center">' + usd(d.totalUsd) + ' at last close' + (S.live ? ' · live ' + liveStamp() + ' (' + S.live.got + '/' + S.live.asked + ' quotes; some exchanges are delayed by Yahoo)' : '') + '</div>';
 }
 var CSORT = { date: function (r) { return r.lastSell; }, gain: function (r) { return r.gainUsd; }, pct: function (r) { return r.returnPct; }, name: function (r) { return r.asset; }, opened: function (r) { return r.firstBuy; }, acct: function (r) { return r.acct + r.asset; } };
 function closedSort(k) { setSort(CLD, k, (k === 'name' || k === 'acct') ? 1 : -1); drawClosed(); }
 function drawClosed() {
-  var h = '<div class="seg"><button onclick="HLD.mode=\'open\';drawHold()">Open</button><button class="on">Closed</button></div><input class="search" placeholder="Search closed positions" value="' + esc(CLD.q) + '" oninput="CLD.q=this.value;closedList()">' + sortBar(CLD, [['date', 'Sold'], ['opened', 'Bought'], ['gain', 'Gain'], ['pct', 'Return'], ['name', 'A–Z'], ['acct', 'Account']], 'closedSort') + '<div id="cl"><div class="skel"></div></div>';
+  var h = '<div class="seg"><button onclick="HLD.mode=\'open\';drawHold()">Open</button><button class="on">Closed</button></div>' + filtBar() + filterRow(((S.mem.closed || {}).rows || []), 'drawClosed', true) + '<input class="search" placeholder="Ticker or name; several with commas" value="' + esc(CLD.q) + '" oninput="CLD.q=this.value;closedList()">' + (filtAny() ? '<div class="frow"><button class="chip" onclick="clearAll()">Clear all filters</button></div>' : '') + '<div id="cs"></div>' + sortBar(CLD, [['date', 'Sold'], ['opened', 'Bought'], ['gain', 'Gain'], ['pct', 'Return'], ['name', 'A–Z'], ['acct', 'Account']], 'closedSort') + '<div id="cl"><div class="skel"></div></div>';
   $('#main').innerHTML = h; load('closed', {}, function (d) { closedList(); }, false, true);
   if (S.mem.closed) closedList();
 }
+function closedSummary(rows) {
+  var pro = 0, cost = 0, gain = 0, keys = [], wins = 0, openVal = 0; rows.forEach(function (r) { pro += r.proceedsUsd; cost += r.costUsd; gain += r.gainUsd; keys.push(r.key); if (r.gainUsd > 0) wins++; });
+  var held = {}; ((S.hold && S.hold.rows) || []).forEach(function (r) { held[r.key] = r.valueUsd; }); keys.forEach(function (k) { if (held[k]) openVal += held[k]; });
+  var x = S.hold ? xirrFor(keys, openVal, S.hold.asOf) : null;
+  return sumBox([['Realised gain', usdS(gain), cls(gain), rows.length + ' position' + (rows.length === 1 ? '' : 's') + ' · ' + wins + ' in profit'], ['Return', pc(cost > 0 ? gain / cost * 100 : null, 1), cls(gain), 'on cost ' + usd(cost)], ['Proceeds', usd(pro), '', 'what the sales brought in'], ['XIRR', x ? pc(x.x, 1) : '–', x ? cls(x.x) : '', x ? (x.short ? 'under a year: treat with care' : 'money-weighted, yearly') : 'needs money in and out']]);
+}
 function closedList() {
-  var d = S.mem.closed; if (!d || !$('#cl')) return; var q = CLD.q.toLowerCase(), rows = sorted(d.rows.filter(function (r) { return !q || (r.asset + ' ' + r.name + ' ' + r.acct).toLowerCase().indexOf(q) >= 0; }), CLD, CSORT);
-  $('#cl').innerHTML = '<div class="grid2" style="margin-bottom:12px"><div class="stat"><div class="k">Realised gain</div><div class="v ' + cls(d.totals.gainUsd) + '">' + usdS(d.totals.gainUsd) + '</div></div><div class="stat"><div class="k">Positions closed</div><div class="v">' + d.rows.length + '</div></div></div><div class="card" style="padding:4px 16px">' + rows.map(function (r) {
+  var d = S.mem.closed; if (!d || !$('#cl')) return; var pool = d.rows.filter(passF).filter(function (r) { return passB(r, true); }), rows = sorted(pool.filter(function (r) { return matchQ(r, CLD.q); }), CLD, CSORT);
+  var cs = $('#cs'); if (cs) cs.innerHTML = closedSummary(CLD.q ? rows : pool);
+  $('#cl').innerHTML = '<div class="card" style="padding:4px 16px">' + rows.map(function (r) {
     var loc = r.ccy && r.ccy !== 'USD' && r.gainLocal !== undefined;
     return '<div class="row tap" onclick="closedDetail(\'' + esc(r.key) + '\')"><div class="avatar">' + esc(r.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(r.asset) + '</div><div class="s">' + dshort(r.firstBuy) + ' → ' + dshort(r.lastSell) + '</div></div><div class="r"><div class="t ' + cls(r.gainUsd) + '">' + (loc ? mnyS(r.gainLocal, r.ccy) : usdS(r.gainUsd)) + '</div><div class="s">' + pc(r.returnPct, 0) + '</div>' + (loc ? '<div class="usd2">' + usdS(r.gainUsd) + '</div>' : '') + '</div></div>'; }).join('') + '</div>';
 }
@@ -441,7 +566,7 @@ function holdDetail(k) {
   var r = hrows().filter(function (x) { return x.key === k; })[0]; if (!r) return;
   var h = '<h2>' + esc(r.asset) + ' ' + healthBadge(r) + '</h2><div class="mut sm">' + esc(r.name) + ' · ' + esc(r.acct) + ' · ' + esc(r.sector || '') + '</div>';
   h += '<div class="grid2" style="margin:12px 0"><div class="stat"><div class="k">Value' + (r.live ? ' · live' : '') + '</div><div class="v">' + (r.currency && r.currency !== 'USD' && r.valueLocal != null ? mny(r.valueLocal, r.currency) + '<div class="usd2">' + usd(r.valueUsd) + '</div>' : usd(r.valueUsd)) + '</div></div><div class="stat"><div class="k">Unrealised</div><div class="v ' + cls(r.unrealizedUsd) + '">' + (r.currency && r.currency !== 'USD' && r.valueLocal != null ? mnyS(r.valueLocal - r.cost, r.currency) + '<div class="usd2">' + usdS(r.unrealizedUsd) + '</div>' : usdS(r.unrealizedUsd)) + '</div><div class="tiny">' + pc(r.unrealizedPct, 1) + '</div></div></div>';
-  h += kv('Price', num(r.price, 2) + ' ' + esc(r.priceCcy || '') + ' · ' + dshort(r.priceDate)) + kv('Today', r.dayPct === null ? '–' : '<span class="' + cls(r.dayPct) + '">' + pc(r.dayPct, 2) + '</span>') + kv('Quantity', num(r.qty, 4)) + kv('Average cost', num(r.avgCost, 2) + ' ' + esc(r.currency)) + kv('Weight', pcp(r.weightPct)) + kv('Realised on this', usdS(r.realizedUsd)) + kv('Income received', usd(r.incomeUsd));
+  h += kv('Price', num(r.price, 2) + ' ' + esc(r.priceCcy || '') + ' · ' + dshort(r.priceDate)) + kv('Today', r.dayPct === null || r.dayPct === undefined ? '–' : '<span class="' + cls(r.dayPct) + '">' + (r.prevPrice != null ? (r.price - r.prevPrice > 0 ? '▲' : '▼') + num(Math.abs(r.price - r.prevPrice), 2) + ' (' + pc(r.dayPct, 2) + ')' : pc(r.dayPct, 2)) + (r.dayUsd != null ? ' · ' + usdS(r.dayUsd) : '') + '</span>') + kv('Quantity', num(r.qty, 4)) + kv('Average cost', num(r.avgCost, 2) + ' ' + esc(r.currency)) + kv('Weight', pcp(r.weightPct)) + kv('Realised on this', usdS(r.realizedUsd)) + kv('Income received', usd(r.incomeUsd));
   if (r.thesis || r.conviction) h += '<h3 style="margin:16px 0 4px;font-size:12px;color:var(--tx3);text-transform:uppercase">Your journal</h3>' + kv('Thesis', esc(r.thesis || '–')) + kv('Conviction', r.conviction ? r.conviction + ' / 10' + (r.convictionHold ? ' · hold' : '') : '–') + (r.why ? '<div class="note">Why: ' + esc(r.why) + '</div>' : '') + (r.exit ? '<div class="note">Exit when: ' + esc(r.exit) + '</div>' : '');
   if (r.health !== 'OK') h += '<div class="banner" style="margin-top:12px"><div class="sm">' + (r.health === 'MANUAL' ? 'This price is entered by you.' : r.health === 'ESTIMATED' ? 'No price found: valued at cost.' : 'The last price is ' + r.priceAgeDays + ' days old.') + '</div></div>';
   h += '<h3 style="margin:16px 0 4px;font-size:12px;color:var(--tx3);text-transform:uppercase">Lots (' + r.lots.length + ')</h3><table class="t"><tr><th>Bought</th><th class="r">Qty</th><th class="r">Held</th></tr>' + r.lots.map(function (l) { return '<tr><td>' + dshort(l.date) + '</td><td class="r">' + num(l.qty, 4) + '</td><td class="r">' + (l.days > 365 ? Math.floor(l.days / 365) + 'y ' + Math.floor(l.days % 365 / 30) + 'm' : l.days + 'd') + ' <span class="badge ' + (l.term === 'LONG' ? 'OK' : '') + '">' + l.term + '</span></td></tr>'; }).join('') + '</table>';
