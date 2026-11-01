@@ -321,9 +321,11 @@ function liveRow(r) {
   var f = q.p / r.price, o = {}; for (var k in r) o[k] = r[k];
   o.valueLocal = r.valueLocal ? r.valueLocal * f : r.valueLocal; o.valueLocalLive = true; o.price = q.p; o.priceDate = (q.t || '').slice(0, 10) || r.priceDate; o.valueUsd = r.valueUsd * f; o.value = r.value * f; if (r.valueLocal !== null && r.valueLocal !== undefined) o.valueLocal = r.valueLocal * f; o.unrealizedUsd = o.valueUsd - r.costUsd; o.unrealizedPct = r.costUsd > 0 ? (o.valueUsd / r.costUsd - 1) * 100 : null;
   if (q.prev) { o.dayPct = (q.p / q.prev - 1) * 100; o.dayUsd = o.valueUsd * (1 - q.prev / q.p); }
-  o.live = true; o.liveAt = q.t; o.delay = q.delay; return o;
+  o.live = true; o.liveAt = q.t; o.state = q.state; o.delay = q.delay; return o;
 }
 function liveDelta() { if (!S.live || !S.hold) return null; var d = 0, n = 0; S.hold.rows.forEach(function (r) { var l = liveRow(r); if (l.live) { d += l.valueUsd - r.valueUsd; n++; } }); return n ? d : null; }
+/* today's change: each quote against ITS OWN previous session close (Yahoo's), never against the Sheet's saved close, which can be days old */
+function liveDay() { if (!S.live || !S.hold) return null; var d = 0, base = 0, n = 0, open = 0; S.hold.rows.forEach(function (r) { var l = liveRow(r); if (l.live && l.dayUsd !== null && l.dayUsd !== undefined) { d += l.dayUsd; base += l.valueUsd - l.dayUsd; n++; if (l.state === 'REGULAR') open++; } }); return n ? { usd: d, pct: base ? d / base * 100 : 0, n: n, open: open } : null; }
 function liveStamp() { return S.live && S.live.at ? new Date(S.live.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''; }
 function fetchLive(done) {
   var ids = []; ((S.hold && S.hold.rows) || []).forEach(function (r) { if (ids.indexOf(r.asset) < 0) ids.push(r.asset); }); if (!ids.length || !isAll() && false) return;
@@ -349,7 +351,9 @@ function drawHome(o, meta) {
   h += staleNote(meta);
   var ld = liveDelta(), shownVal = o.valueUsd + (ld || 0);
   h += '<div class="card hero"><div class="lbl">' + (ld !== null ? '<span class="pill"><i></i>Live ' + liveStamp() + '</span>' : 'Total value · ' + dshort(o.asOf)) + '</div><div class="big num">' + usd(shownVal) + '</div>';
-  if (ld !== null) h += '<div class="num ' + cls(ld) + '" style="font-weight:600;margin-top:2px">' + usdS(ld) + ' (' + pc(o.valueUsd ? ld / o.valueUsd * 100 : 0, 2) + ') <span class="mut sm" style="font-weight:500">since the ' + dshort(o.asOf) + ' close of ' + usd(o.valueUsd) + '</span></div>';
+  var dy = liveDay();
+  if (dy) h += '<div class="num ' + cls(dy.usd) + '" style="font-weight:600;margin-top:2px">' + usdS(dy.usd) + ' (' + pc(dy.pct, 2) + ') <span class="mut sm" style="font-weight:500">today · ' + (dy.open ? dy.open + ' of ' + dy.n + ' markets open' : 'markets closed, last session') + '</span></div>';
+  if (ld !== null) h += '<div class="tiny" style="margin-top:2px">' + usdS(ld) + ' vs the saved ' + dshort(o.asOf) + ' close of ' + usd(o.valueUsd) + '</div>';
   if (full && o.dayGainUsd !== null && ld === null) h += '<div class="num ' + cls(o.dayGainUsd) + '" style="font-weight:600;margin-top:2px">' + usdS(o.dayGainUsd) + ' (' + pc(o.dayGainPct, 2) + ') <span class="mut sm" style="font-weight:500">last trading day</span></div>';
   h += '<div class="grid2" style="margin-top:16px"><div class="stat"><div class="k">Invested</div><div class="v">' + usd(o.investedUsd + (ld || 0)) + '</div></div><div class="stat"><div class="k">Cash</div><div class="v">' + usd(o.cashUsd) + '</div></div></div></div>';
   var hl = o.health || {}, bad = (hl.STALE || 0) + (hl.FAILING || 0) + (hl.ESTIMATED || 0);
