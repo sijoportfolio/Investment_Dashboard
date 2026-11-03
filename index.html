@@ -97,12 +97,13 @@ table.t{width:100%;border-collapse:collapse;font-size:13px}table.t th{text-align
 .kv{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-size:14px}.kv:first-child{border-top:0}.kv span:first-child{color:var(--tx2)}
 .note{font-size:12px;color:var(--tx3);margin:6px 2px 12px}
 .reportdoc{display:none}
+.selbtn{text-align:left;cursor:pointer;max-width:48%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.selbtn.on{border-color:var(--acc);color:var(--acc)}
 @media print{body{background:#fff;color:#000}#app,#sheet,#sheetbg,#tabs,#toast,.lock{display:none!important}.reportdoc{display:block!important;padding:12mm;color:#000;font:11pt/1.35 system-ui}.reportdoc h1{font-size:18pt}.reportdoc table{width:100%;border-collapse:collapse;font-size:9pt}.reportdoc th,.reportdoc td{border-bottom:1px solid #ccc;padding:3px 4px;text-align:left}.reportdoc .r{text-align:right}}
 @media(min-width:900px){
  #app{max-width:none;margin:0 0 0 210px}
  #top{padding:24px 40px 8px;max-width:1180px}#top h1{font-size:30px}
  #main{padding:8px 40px 40px}#main>*{max-width:1180px;margin-left:auto;margin-right:auto}
- #main.cols{column-count:2;column-gap:16px;max-width:1180px}#main.cols>*{break-inside:avoid;max-width:none}#main.cols>.chips,#main.cols>.seg,#main.cols>.banner{column-span:all}
+ #main.cols{max-width:1180px}.cgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 16px;align-items:start;max-width:none!important}.cgrid>.ccol{min-width:0}.cgrid .card{max-width:none}
  #tabs{top:0;bottom:0;right:auto;width:210px;padding:24px 14px;background:var(--bg2);border-right:1px solid var(--line);justify-content:flex-start;align-items:flex-start}
  #tabs .nav{flex-direction:column;max-width:none;box-shadow:none;border:0;background:none;gap:4px;padding:0}
  #tabs button{flex-direction:row;gap:12px;font-size:15px;padding:12px 14px;justify-content:flex-start;width:100%}
@@ -318,6 +319,19 @@ function setTop(title, sub, left, right) {
   $('#top').innerHTML = (left ? '<button class="iconbtn" onclick="back()">' + ico('back') + '</button>' : '') + '<h1>' + esc(title) + (sub ? '<span class="sub">' + sub + '</span>' : '') + '</h1>' + (right || '');
 }
 var SCREENS = {};
+/* Desktop only (900px and wider): lay the cards of Home and Plan out in two balanced columns. Banners, tabs and period chips stay full width.
+   (A CSS multi-column layout inside the fixed-height scroll area pushed extra cards off to the right.) */
+function colify() {
+  var m = $('#main'); if (!m || !m.classList.contains('cols') || window.innerWidth < 900) return;
+  var kids = [].slice.call(m.children), run = [], isSpan = function (e) { return e.matches('.chips,.seg,.banner,#stalenote,.frow') || (S.tab === 'home' && e === kids[0] && e.matches('.card')); };
+  m.innerHTML = '';
+  var flush = function () {
+    if (!run.length) return; var g = document.createElement('div'), a = document.createElement('div'), b = document.createElement('div');
+    g.className = 'cgrid'; a.className = 'ccol'; b.className = 'ccol'; g.appendChild(a); g.appendChild(b); m.appendChild(g);
+    run.forEach(function (e) { (a.offsetHeight <= b.offsetHeight ? a : b).appendChild(e); }); run = [];
+  };
+  kids.forEach(function (e) { if (isSpan(e)) { flush(); m.appendChild(e); } else run.push(e); }); flush();
+}
 function go(tab, arg) { S.ticks = 0; $('#main').classList.toggle('cols', tab === 'home' || tab === 'plan'); S.tab = tab; S.stack = []; S.arg = arg; drawTabs(); var m = $('#main'); m.scrollTop = 0; (SCREENS[tab] || SCREENS.home)(arg); }
 function push(name, arg) { S.stack.push({ tab: S.tab, name: name, arg: arg }); $('#main').scrollTop = 0; SCREENS[name](arg); }
 function back() { if (S.stack.length > 1) { S.stack.pop(); var s = S.stack[S.stack.length - 1]; SCREENS[s.name](s.arg); } else { S.stack = []; go(S.tab); } }
@@ -393,7 +407,7 @@ function drawHome(o, meta) {
     if (o.loan) h += loanCard(o.loan);
   }
   h += '<div class="card"><h3>Accounts</h3>' + o.accounts.map(function (a) { return '<div class="row"><div class="avatar">' + esc(String(a.broker || '').slice(0, 3).toUpperCase()) + '</div><div class="grow"><div class="t">' + esc(a.broker) + ' · ' + esc(a.currency) + '</div><div class="s">' + esc(a.acct) + '</div></div><div class="r"><div class="t num">' + (a.currency && a.currency !== 'USD' && a.fxPerUsd ? mny((a.investedUsd + a.cashUsd) * a.fxPerUsd, a.currency) + '<div class="usd2">' + usd(a.investedUsd + a.cashUsd) + '</div>' : usd(a.investedUsd + a.cashUsd)) + '</div><div class="s">cash ' + (a.currency && a.currency !== 'USD' && a.fxPerUsd ? mny(a.cashUsd * a.fxPerUsd, a.currency) : usd(a.cashUsd)) + '</div></div></div>'; }).join('') + '</div>';
-  m.innerHTML = h;
+  m.innerHTML = h; colify();
 }
 function kv(a, b) { return '<div class="kv"><span>' + a + '</span><span class="num">' + b + '</span></div>'; }
 function customPeriod() {
@@ -411,7 +425,7 @@ function loanCard(l) {
 }
 
 /* ---------- Holdings ---------- */
-var HLD = { q: '', sort: 'value', dir: -1, mode: 'open' }, CLD = { q: '', sort: 'date', dir: -1 };
+var HLD = { q: '', sort: 'value', dir: -1, mode: 'open', incSold: false }, CLD = { q: '', sort: 'date', dir: -1 };
 var FILT = {};   /* { dimension: [chosen values] }  - same filters on open and closed positions */
 var DIMS = [['region', 'Region'], ['broker', 'Broker'], ['account', 'Account'], ['sector', 'Sector'], ['group', 'Theme'], ['cap', 'Size'], ['tier', 'Tier'], ['assetClass', 'Class'], ['currency', 'Currency']];
 SCREENS.holdings = function () {
@@ -438,17 +452,17 @@ function filterSheet(dim) {
 function toggleF2(k, v) { var a = FILT[k] = FILT[k] || [], i = a.indexOf(v); if (i >= 0) a.splice(i, 1); else a.push(v); if (!a.length) delete FILT[k]; filterSheet(k); }
 
 /* v7-style filters: ticker/name (several with commas), broker, region, winners/losers; closed also has dates */
-var FB = { broker: '', region: '', res: '' }, CRANGE = { from: '', to: '' }, CMP = { on: false, sel: [] };
+var FB = { res: '' }, CRANGE = { from: '', to: '' }, CMP = { on: false, sel: [] };
 function matchQ(r, q) { var ts = q.toLowerCase().split(',').map(function (t) { return t.trim(); }).filter(Boolean); if (!ts.length) return true; var hay = (r.asset + ' ' + r.name + ' ' + r.acct + ' ' + (r.sector || '')).toLowerCase(); return ts.some(function (t) { return hay.indexOf(t) >= 0; }); }
 function passB(r, closed) {
-  var d = r.dims || {}; if (FB.broker && d.broker !== FB.broker) return false; if (FB.region && d.region !== FB.region) return false;
   var g = closed ? r.gainUsd : r.unrealizedUsd; if (FB.res === 'win' && !(g > 0)) return false; if (FB.res === 'loss' && !(g < 0)) return false;
   if (closed) { if (CRANGE.from && String(r.lastSell).slice(0, 10) < CRANGE.from) return false; if (CRANGE.to && String(r.lastSell).slice(0, 10) > CRANGE.to) return false; }
   return true;
 }
+/* Broker and Region: tick several of each. They combine (Broker Wio + Region Crypto = Wio crypto). Same store as the Filter sheet, so the two always agree. */
 function selF(key, label, rows, redraw) {
-  var cnt = {}; rows.forEach(function (r) { var v = (r.dims || {})[key]; if (v) cnt[v] = 1; });
-  return '<select class="sel" onchange="FB.' + key + '=this.value;' + redraw + '()"><option value="">All ' + label + '</option>' + Object.keys(cnt).sort().map(function (v) { return '<option' + (FB[key] === v ? ' selected' : '') + ' value="' + esc(v) + '">' + esc(v) + '</option>'; }).join('') + '</select>';
+  var v = FILT[key] || [];
+  return '<button class="sel selbtn' + (v.length ? ' on' : '') + '" onclick="filterSheet(\'' + key + '\')">' + (v.length ? esc(v.join(', ')) : 'All ' + label) + ' ▾</button>';
 }
 function filterRow(rows, redraw, closed) {
   var h = '<div class="frow">' + selF('broker', 'brokers', rows, redraw) + selF('region', 'regions', rows, redraw)
@@ -459,8 +473,8 @@ function filterRow(rows, redraw, closed) {
 }
 function isoD(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
 function closedPreset(p) { var t = new Date(); if (p === 'ytd') { CRANGE = { from: isoD(new Date(t.getFullYear(), 0, 1)), to: isoD(t) }; } else if (p === 'ly') { CRANGE = { from: isoD(new Date(t.getFullYear() - 1, 0, 1)), to: isoD(new Date(t.getFullYear() - 1, 11, 31)) }; } else CRANGE = { from: '', to: '' }; drawClosed(); }
-function filtAny() { return filtN() || FB.broker || FB.region || FB.res || (HLD.mode === 'closed' ? (CLD.q || CRANGE.from || CRANGE.to) : HLD.q); }
-function clearAll() { HLD.q = ''; CLD.q = ''; FB = { broker: '', region: '', res: '' }; FILT = {}; CRANGE = { from: '', to: '' }; refreshHold(); }
+function filtAny() { return filtN() || FB.res || (HLD.mode === 'closed' ? (CLD.q || CRANGE.from || CRANGE.to) : HLD.q); }
+function clearAll() { HLD.q = ''; CLD.q = ''; FB = { res: '' }; FILT = {}; CRANGE = { from: '', to: '' }; refreshHold(); }
 /* compare: tick 2 to 4 open holdings, then look at them side by side */
 function cmpMode() { CMP.on = !CMP.on; CMP.sel = []; drawHold(); }
 function cmpTick(k) { var i = CMP.sel.indexOf(k); if (i >= 0) CMP.sel.splice(i, 1); else if (CMP.sel.length < 4) CMP.sel.push(k); else toast && toast('Up to 4 at a time'); holdList(); }
@@ -507,15 +521,21 @@ function sumBox(items) { return '<div class="card" style="padding:12px"><div cla
 function holdSummary(rows) {
   var val = 0, cost = 0, day = 0, dayBase = 0, real = 0, inc = 0, n = rows.length, keys = [];
   rows.forEach(function (r) { val += r.valueUsd; cost += r.costUsd; real += r.realizedUsd; inc += r.incomeUsd; keys.push(r.key); if (r.dayUsd !== null && r.dayUsd !== undefined) { day += r.dayUsd; dayBase += r.valueUsd - r.dayUsd; } });
-  var un = val - cost, tot = un + real + inc, x = xirrFor(keys, val, S.hold.asOf), share = S.ov ? val / (S.ov.valueUsd + (liveDelta() || 0)) * 100 : null;
-  return sumBox([['Value', usd(val), '', n + ' position' + (n === 1 ? '' : 's') + (share !== null ? ' · ' + pcp(share) + ' of portfolio' : '')], ['Today', usdS(day), cls(day), pc(dayBase ? day / dayBase * 100 : 0, 2)], ['Unrealised', usdS(un), cls(un), pc(cost > 0 ? un / cost * 100 : null, 1) + ' on cost ' + usd(cost)], ['Total return', usdS(tot), cls(tot), 'with realised ' + usdS(real) + ' and income ' + usd(inc)], ['XIRR', x ? pc(x.x, 1) : '–', x ? cls(x.x) : '', x ? (x.short ? 'under a year: treat with care' : 'positions still held, incl. past sales and income') : 'needs money in and out'], ['Cost', usd(cost), '', 'what you paid for what you hold']]);
+  var soldN = 0, soldGain = 0, xkeys = keys;
+  if (HLD.incSold) {   /* add the positions already sold (same filters), so the XIRR covers everything you did in this selection, not only what you still hold */
+    var cl = S.mem.closed; if (!cl) load('closed', {}, function () { holdList(); }, false, true);
+    else { var seen = {}; keys.forEach(function (k) { seen[k] = 1; }); xkeys = keys.slice();
+      cl.rows.filter(passF).filter(function (r) { return !HLD.q || matchQ(r, HLD.q); }).forEach(function (r) { if (!seen[r.key]) { seen[r.key] = 1; xkeys.push(r.key); soldN++; soldGain += r.gainUsd; } }); }
+  }
+  var un = val - cost, tot = un + real + inc, x = xirrFor(xkeys, val, S.hold.asOf), share = S.ov ? val / (S.ov.valueUsd + (liveDelta() || 0)) * 100 : null;
+  return sumBox([['Value', usd(val), '', n + ' position' + (n === 1 ? '' : 's') + (share !== null ? ' · ' + pcp(share) + ' of portfolio' : '')], ['Today', usdS(day), cls(day), pc(dayBase ? day / dayBase * 100 : 0, 2)], ['Unrealised', usdS(un), cls(un), pc(cost > 0 ? un / cost * 100 : null, 1) + ' on cost ' + usd(cost)], ['Total return', usdS(tot), cls(tot), 'with realised ' + usdS(real) + ' and income ' + usd(inc)], ['XIRR', x ? pc(x.x, 1) : '–', x ? cls(x.x) : '', x ? (x.short ? 'under a year: treat with care' : (HLD.incSold ? 'incl. ' + soldN + ' sold position' + (soldN === 1 ? '' : 's') + ' (realised ' + usdS(soldGain) + ')' : 'positions still held, incl. past sales and income')) : (HLD.incSold && !S.mem.closed ? 'loading sold positions…' : 'needs money in and out')], ['Cost', usd(cost), '', 'what you paid for what you hold']]);
 }
 var HSORT = { value: function (r) { return r.valueUsd; }, gain: function (r) { return r.unrealizedUsd; }, pct: function (r) { return r.unrealizedPct; }, day: function (r) { return r.dayPct; }, weight: function (r) { return r.weightPct; }, name: function (r) { return r.asset; }, acct: function (r) { return r.acct + r.asset; }, sector: function (r) { return (r.sector || '') + r.asset; } };
 function holdSort(k) { setSort(HLD, k, (k === 'name' || k === 'acct' || k === 'sector') ? 1 : -1); drawHold(); }
 function drawHold() {
   var d = S.hold; if (!d) return;
   if (HLD.mode === 'closed') return drawClosed();
-  var h = '<div class="seg"><button class="on">Open</button><button onclick="HLD.mode=\'closed\';drawHold()">Closed</button></div>' + filtBar() + filterRow(hrows(), 'drawHold') + '<input class="search" placeholder="Ticker or name; several with commas, e.g. TCS, INFY" value="' + esc(HLD.q) + '" oninput="HLD.q=this.value;holdList()"><div class="frow"><button class="chip ' + (CMP.on ? 'on' : '') + '" onclick="cmpMode()">☑ Select to compare</button>' + (filtAny() ? '<button class="chip" onclick="clearAll()">Clear all filters</button>' : '') + '</div><div id="hs"></div>'
+  var h = '<div class="seg"><button class="on">Open</button><button onclick="HLD.mode=\'closed\';drawHold()">Closed</button></div>' + filtBar() + filterRow(hrows(), 'drawHold') + '<input class="search" placeholder="Ticker or name; several with commas, e.g. TCS, INFY" value="' + esc(HLD.q) + '" oninput="HLD.q=this.value;holdList()"><div class="frow"><button class="chip ' + (CMP.on ? 'on' : '') + '" onclick="cmpMode()">☑ Select to compare</button><button class="chip ' + (HLD.incSold ? 'on' : '') + '" onclick="HLD.incSold=!HLD.incSold;drawHold()">' + (HLD.incSold ? '☑' : '☐') + ' XIRR incl. sold positions</button>' + (filtAny() ? '<button class="chip" onclick="clearAll()">Clear all filters</button>' : '') + '</div><div id="hs"></div>'
     + sortBar(HLD, [['value', 'Value'], ['gain', 'Gain'], ['pct', 'Gain %'], ['day', 'Today'], ['weight', 'Weight'], ['name', 'A–Z'], ['acct', 'Account'], ['sector', 'Sector']], 'holdSort') + '<div id="hl"></div>';
   $('#main').innerHTML = h; holdList();
 }
@@ -642,7 +662,7 @@ function drawPlan() {
   var d = S.pr; if (!d) return;
   var h = '<div class="seg">' + [['goal', 'Goal'], ['risk', 'Risk'], ['stress', 'Stress']].map(function (t) { return '<button class="' + (PLAN.tab === t[0] ? 'on' : '') + '" onclick="PLAN.tab=\'' + t[0] + '\';drawPlan()">' + t[1] + '</button>'; }).join('') + '</div>';
   h += PLAN.tab === 'goal' ? goalTab(d) : PLAN.tab === 'risk' ? riskTab(d) : stressTab(d);
-  $('#main').innerHTML = h; if (PLAN.tab === 'goal') drawForecast();
+  $('#main').innerHTML = h; colify(); if (PLAN.tab === 'goal') drawForecast();
 }
 function monthsFrom(startIso, n) { var y = +startIso.slice(0, 4), m = +startIso.slice(5, 7) - 1 + n; y += Math.floor(m / 12); m = ((m % 12) + 12) % 12; return y + '-' + ('0' + (m + 1)).slice(-2) + '-' + startIso.slice(8, 10); }
 function monthsBetween(a, b) { return (+b.slice(0, 4) - +a.slice(0, 4)) * 12 + (+b.slice(5, 7) - +a.slice(5, 7)); }
