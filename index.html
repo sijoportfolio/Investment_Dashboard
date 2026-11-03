@@ -78,6 +78,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 #sheet h2{margin:0 0 4px;font-size:20px}
 #toast{position:fixed;left:50%;bottom:calc(96px + var(--sab));transform:translate(-50%,20px);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:14px;font-weight:600;font-size:14px;opacity:0;transition:all .2s;z-index:40;max-width:90%;text-align:center}
 #toast.on{opacity:1;transform:translate(-50%,0)}
+#upd{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + var(--sab));font-size:11px;color:var(--tx3);z-index:30;pointer-events:none;white-space:nowrap;padding:2px 10px;border-radius:10px;background:color-mix(in srgb,var(--bg) 80%,transparent)}
+#upd:empty{display:none}#upd.busy{color:var(--acc);font-weight:600}
 .lock{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center}
 .lock .logo{width:84px;height:84px;border-radius:24px;background:linear-gradient(145deg,#35d0a0,#1b7f9a);display:grid;place-items:center;margin-bottom:18px;box-shadow:0 10px 30px rgba(53,208,160,.3)}
 .lock .logo svg{width:44px;height:44px;color:#04130d}
@@ -110,7 +112,7 @@ table.t{width:100%;border-collapse:collapse;font-size:13px}table.t th{text-align
  #tabs button svg{width:20px;height:20px}#tabs .dot{position:static;margin-left:auto}
  #sheet{left:50%;right:auto;width:560px;max-width:92%;bottom:auto;top:50%;transform:translate(-50%,-40%);opacity:0;pointer-events:none;border-radius:24px;max-height:86%}
  #sheet.on{transform:translate(-50%,-50%);opacity:1;pointer-events:auto}
- #toast{bottom:30px}.lock .box{max-width:380px}
+ #toast{bottom:30px}#upd{bottom:10px;left:calc(50% + 105px)}.lock .box{max-width:380px}
  svg.chart{height:240px!important}
 }
 
@@ -154,7 +156,7 @@ td.cbest{background:rgba(46,204,113,.16)}td.cworst{background:rgba(255,92,92,.16
 <div id="prog"></div><div id="app"><div id="top"></div><div id="ptr"></div><div id="main"></div></div>
 <div id="tabs"></div>
 <div id="sheetbg" onclick="closeSheet()"></div><div id="sheet"></div>
-<div id="toast"></div>
+<div id="toast"></div><div id="upd"></div>
 <div id="lock" class="lock hide"></div>
 <div id="reportdoc" class="reportdoc"></div>
 <script>
@@ -240,13 +242,44 @@ var PENDING = 0;
 document.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('button.btn,button.chip'); if (b) { S.lastBtn = b; S.lastBtnAt = Date.now(); } }, true);
 function api(action, params, opts) {
   opts = opts || {}; var btn = (S.lastBtn && Date.now() - S.lastBtnAt < 400 && action !== 'live' && document.body.contains(S.lastBtn)) ? S.lastBtn : null; if (btn) btn.classList.add('working');
-  if (action !== 'live') { PENDING++; $('#prog').classList.add('on'); }
+  var quietCall = (action === 'live' || action === 'status');
+  if (!quietCall) { PENDING++; $('#prog').classList.add('on'); }
   return fetch(S.api, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ key: S.key, action: action, params: params || {} }) })
     .then(function (r) { return r.json(); }).then(function (j) {
-      if (btn) btn.classList.remove('working'); if (action !== 'live' && --PENDING <= 0) { PENDING = 0; $('#prog').classList.remove('on'); }
+      if (btn) btn.classList.remove('working'); if (!quietCall && --PENDING <= 0) { PENDING = 0; $('#prog').classList.remove('on'); }
+      if (j.meta) setMeta(j.meta, quietCall);
       if (!j.ok) { var e = new Error(j.message || 'Something went wrong'); e.code = j.code; if (j.code === 'DENIED' || j.code === 'LOCKED') { if (action !== 'login') signOut(true); } throw e; }
       if (j.who) S.who = j.who; return j.data;
-    }, function (err) { if (btn) btn.classList.remove('working'); if (action !== 'live' && --PENDING <= 0) { PENDING = 0; $('#prog').classList.remove('on'); } throw err; });
+    }, function (err) { if (btn) btn.classList.remove('working'); if (!quietCall && --PENDING <= 0) { PENDING = 0; $('#prog').classList.remove('on'); } throw err; });
+}
+/* The server prepares every screen ahead of time and rebuilds them in the background after any change. Each reply says when the data was prepared
+   and whether a rebuild is running; while it is, show "Updating…", check quietly every 8 seconds, and redraw the screen once it is done. */
+function setMeta(m, quiet) {
+  if (!m) return; if (quiet && S.meta) m.ms = S.meta.ms;
+  S.meta = m; var el = $('#upd'); if (!el) return;
+  var b = m.built ? String(m.built) : '', hhmm = b.slice(11, 16), day = b.slice(0, 10), today = new Date().toLocaleDateString('en-CA');
+  el.className = m.updating ? 'busy' : '';
+  el.textContent = m.updating ? '↻ Updating…' : (b ? 'Data prepared ' + (day && day !== today ? dshort(day) + ' ' : '') + hhmm + ' · server ' + ((m.ms || 0) / 1000).toFixed(1) + ' s' : '');
+  if (m.updating && !S.pollOn) pollStatus();
+}
+function pollStatus() {
+  S.pollOn = true; S.pollN = 0;
+  (function tick() {
+    setTimeout(function () {
+      if (!S.who) { S.pollOn = false; return; }
+      api('status').then(function () {
+        if (S.meta && S.meta.updating && ++S.pollN < 40) return tick();
+        S.pollOn = false; if (S.meta && !S.meta.updating) refreshAfterUpdate();
+      }).catch(function () { S.pollOn = false; });
+    }, 8000);
+  })();
+}
+/* keep what is on screen, but treat every saved copy as old so the next look fetches the new numbers (no forced refresh: that would ask the server to rebuild again) */
+function refreshAfterUpdate() {
+  clearCache(); Object.keys(S.memT).forEach(function (k) { S.memT[k] = 0; });
+  if ($('#sheet').classList.contains('on')) return;
+  var top = S.stack.length ? S.stack[S.stack.length - 1] : null;
+  if (top && SCREENS[top.name]) SCREENS[top.name](top.arg); else if (SCREENS[S.tab]) SCREENS[S.tab](S.arg);
 }
 function cacheGet(k) { try { var v = JSON.parse(LS.get('pv8c:' + k) || 'null'); return v; } catch (e) { return null; } }
 function cachePut(k, d) { try { LS.set('pv8c:' + k, JSON.stringify({ t: Date.now(), d: d })); } catch (e) {} }
