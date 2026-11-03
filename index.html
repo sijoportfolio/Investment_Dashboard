@@ -254,11 +254,13 @@ function cachePut(k, d) { try { LS.set('pv8c:' + k, JSON.stringify({ t: Date.now
 var FRESH_MS = 120000; S.memT = S.memT || {};
 function load(action, params, paint, force, quiet) {
   var k = action + (params && Object.keys(params).length ? JSON.stringify(params) : ''), c = S.mem[k] !== undefined ? { d: S.mem[k], t: S.memT[k] || 0 } : cacheGet(k), token = quiet ? S.token : (S.token = (S.token || 0) + 1), m = $('#main');
+  if (c && (c.d === undefined || c.d === null)) c = null;   /* a saved copy without data (from an empty reply) is never painted */
   var fresh = c && !force && (Date.now() - c.t < FRESH_MS);
   if (c) { S.mem[k] = c.d; S.memT[k] = c.t; paint(c.d, { cached: !fresh, t: c.t }); }
   else if (!quiet && m) m.innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
   if (fresh) return Promise.resolve(c.d);
   return api(action, force ? Object.assign({ force: true }, params || {}) : params).then(function (d) {
+    if (d === undefined || d === null) throw new Error('The server sent an empty reply. Pull down to try again.');
     var same = c && JSON.stringify(c.d) === JSON.stringify(d); cachePut(k, d); S.mem[k] = d; S.memT[k] = Date.now();
     if (token === S.token && (!c || !same || force)) { var st = m ? m.scrollTop : 0; paint(d, { cached: false, t: Date.now() }); if (m && c) m.scrollTop = st; }
     else if (token === S.token && c) { var n = $('#stalenote'); if (n) n.remove(); }
@@ -357,7 +359,7 @@ SCREENS.home = function () {
   setTop('Portfolio', S.who ? 'Hello ' + esc(S.who.name) : '', false, refreshBtn());
   load('overview', {}, function (o, meta) { S.ov = o; drawHome(o, meta); }, S.force); S.force = false;
   load('holdings', {}, function (h) { S.hold = h; liveRefresh(); }, false, true);
-  if (isAll()) load('alerts', {}, function (a) { S.unread = a.unread; drawTabs(); }, false, true);
+  if (isAll()) load('alerts', {}, function (a) { S.unread = (a && a.unread) || 0; drawTabs(); }, false, true);
 };
 function periodOf(o, id) {
   if (id === 'CUSTOM' && HOME.custom) { var r = V8_period(o.series, o.flows, HOME.custom[0], HOME.custom[1]); return r ? { id: 'CUSTOM', label: 'Custom', from: r.from, days: r.days, twrPct: r.twr * 100, twrAnnualPct: r.twrAnnual === null ? null : r.twrAnnual * 100, xirrPct: r.xirr === null ? null : r.xirr * 100, xirrReliable: r.xirrReliable, gainUsd: r.gain, netInUsd: r.netIn } : null; }
@@ -578,7 +580,7 @@ function holdDetail(k) {
 SCREENS.alerts = function () {
   setTop('Alerts', '', false, refreshBtn());
   if (!isAll()) { $('#main').innerHTML = '<div class="empty">Alerts are for the owner.</div>'; return; }
-  load('alerts', {}, function (d) { S.alertsData = d; S.unread = d.unread; drawTabs(); drawAlerts(d); }, S.force); S.force = false;
+  load('alerts', {}, function (d) { d = d || { rows: [], unread: 0 }; S.alertsData = d; S.unread = d.unread || 0; drawTabs(); drawAlerts(d); }, S.force); S.force = false;
 };
 function drawAlerts(d) {
   var rows = d.rows.filter(function (r) { return r.state === 'NEW' || r.state === 'SNOOZED' || r.state === 'ACK'; });
