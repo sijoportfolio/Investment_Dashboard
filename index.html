@@ -355,7 +355,22 @@ function liveRow(r) {
 }
 function liveDelta() { if (!S.live || !S.hold) return null; var d = 0, n = 0; S.hold.rows.forEach(function (r) { var l = liveRow(r); if (l.live) { d += l.valueUsd - r.valueUsd; n++; } }); return n ? d : null; }
 /* today's change: each quote against ITS OWN previous session close (Yahoo's), never against the Sheet's saved close, which can be days old */
-function liveDay() { if (!S.live || !S.hold) return null; var d = 0, base = 0, n = 0, open = 0; S.hold.rows.forEach(function (r) { var l = liveRow(r); if (l.live && l.dayUsd !== null && l.dayUsd !== undefined) { d += l.dayUsd; base += l.valueUsd - l.dayUsd; n++; if (l.state === 'REGULAR') open++; } }); return n ? { usd: d, pct: base ? d / base * 100 : 0, n: n, open: open } : null; }
+function liveDay() {
+  if (!S.live || !S.hold) return null;
+  var g = {}, d = 0, base = 0, n = 0;
+  S.hold.rows.forEach(function (r) {
+    var l = liveRow(r); if (!l.live || l.dayUsd === null || l.dayUsd === undefined) return;
+    var reg = (r.dims || {}).region || 'Other', x = g[reg] = g[reg] || { region: reg, usd: 0, base: 0, open: false, t: '' }, b = l.valueUsd - l.dayUsd;
+    x.usd += l.dayUsd; x.base += b; if (l.state === 'REGULAR') x.open = true; if (l.liveAt && l.liveAt > x.t) x.t = l.liveAt;
+    d += l.dayUsd; base += b; n++;
+  });
+  if (!n) return null;
+  var groups = Object.keys(g).map(function (k) { var x = g[k]; return { region: k, usd: x.usd, pct: x.base ? x.usd / x.base * 100 : 0, open: x.open, t: x.t, crypto: k === 'Crypto' }; });
+  /* crypto trades all day, so it never counts as "a market is open"; it joins the headline only when a stock market is open */
+  var anyOpen = groups.some(function (x) { return x.open && !x.crypto; }), hu = 0, hb = 0;
+  groups.forEach(function (x) { if (!anyOpen || x.open) { hu += x.usd; hb += g[x.region].base; } });
+  return { usd: d, pct: base ? d / base * 100 : 0, n: n, open: anyOpen ? groups.filter(function (x) { return x.open && !x.crypto; }).length : 0, headUsd: hu, headPct: hb ? hu / hb * 100 : 0, groups: groups };
+}
 function liveStamp() { return S.live && S.live.at ? new Date(S.live.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''; }
 function fetchLive(done) {
   var ids = []; ((S.hold && S.hold.rows) || []).forEach(function (r) { if (ids.indexOf(r.asset) < 0) ids.push(r.asset); }); if (!ids.length || !isAll() && false) return;
@@ -385,7 +400,13 @@ function drawHome(o, meta) {
   var ld = liveDelta(), shownVal = o.valueUsd + (ld || 0);
   h += '<div class="card hero"><div class="lbl">' + (ld !== null ? '<span class="pill"><i></i>Live ' + liveStamp() + '</span>' : 'Total value · ' + dshort(o.asOf)) + '</div><div class="big num">' + usd(shownVal) + '</div>';
   var dy = liveDay();
-  if (dy) h += '<div class="num ' + cls(dy.usd) + '" style="font-weight:600;margin-top:2px">' + usdS(dy.usd) + ' (' + pc(dy.pct, 2) + ') <span class="mut sm" style="font-weight:500">today · ' + (dy.open ? dy.open + ' of ' + dy.n + ' markets open' : 'markets closed, last session') + '</span></div>';
+  if (dy) {
+    var dn = function (t) { try { return new Date(t).toLocaleDateString([], { weekday: 'short' }); } catch (e) { return ''; } };
+    var opens = dy.groups.filter(function (x) { return x.open && !x.crypto; }).map(function (x) { return x.region; }), shut = dy.groups.filter(function (x) { return !(x.open && !x.crypto) && (!dy.open || !x.crypto); });
+    h += '<div class="num ' + cls(dy.headUsd) + '" style="font-weight:600;margin-top:2px">' + usdS(dy.headUsd) + ' (' + pc(dy.headPct, 2) + ') <span class="mut sm" style="font-weight:500">' + (dy.open ? 'today · ' + esc(opens.join(', ')) + ' open now' : 'markets closed · last session') + '</span></div>';
+    if (dy.open && shut.length) h += '<div class="tiny" style="margin-top:2px">Closed, last session: ' + shut.map(function (x) { return esc(x.region) + ' ' + usdS(x.usd) + ' (' + pc(x.pct, 2) + ')' + (x.t ? ' ' + dn(x.t) : ''); }).join(' · ') + ' · all together ' + usdS(dy.usd) + '</div>';
+    else if (!dy.open && dy.groups.length > 1) h += '<div class="tiny" style="margin-top:2px">' + dy.groups.map(function (x) { return esc(x.region) + ' ' + usdS(x.usd) + (x.t ? ' ' + dn(x.t) : ''); }).join(' · ') + '</div>';
+  }
   if (ld !== null) h += '<div class="tiny" style="margin-top:2px">' + usdS(ld) + ' vs the saved ' + dshort(o.asOf) + ' close of ' + usd(o.valueUsd) + '</div>';
   if (full && o.dayGainUsd !== null && ld === null) h += '<div class="num ' + cls(o.dayGainUsd) + '" style="font-weight:600;margin-top:2px">' + usdS(o.dayGainUsd) + ' (' + pc(o.dayGainPct, 2) + ') <span class="mut sm" style="font-weight:500">last trading day</span></div>';
   h += '<div class="grid2" style="margin-top:16px"><div class="stat"><div class="k">Invested</div><div class="v">' + usd(o.investedUsd + (ld || 0)) + '</div></div><div class="stat"><div class="k">Cash</div><div class="v">' + usd(o.cashUsd) + '</div></div></div></div>';
