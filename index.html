@@ -225,7 +225,7 @@ function cls(n) { return n > 0 ? 'pos' : n < 0 ? 'neg' : ''; }
 function num(n, d) { if (n === null || n === undefined || isNaN(n)) return '–'; return Number(n).toLocaleString('en-US', { maximumFractionDigits: d === undefined ? 2 : d }); }
 function dshort(iso) { if (!iso) return ''; var m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], p = String(iso).slice(0, 10).split('-'); return +p[2] + ' ' + m[+p[1] - 1] + ' ' + p[0]; }
 function ago(iso) { if (!iso) return ''; var n = Math.round((Date.now() - new Date(iso + 'T00:00:00Z')) / 86400000); return n <= 0 ? 'today' : n === 1 ? 'yesterday' : n + ' days ago'; }
-var IC = { home: '<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>', list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>', bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0"/>', target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>', more: '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>', plus: '<path d="M12 5v14M5 12h14"/>', back: '<path d="M15 18l-6-6 6-6"/>', refresh: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/>', chart: '<path d="M3 3v18h18M7 15l4-4 3 3 5-6"/>' };
+var IC = { home: '<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>', list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>', bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0"/>', target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>', repeat: '<path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/>', more: '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>', plus: '<path d="M12 5v14M5 12h14"/>', back: '<path d="M15 18l-6-6 6-6"/>', refresh: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/>', chart: '<path d="M3 3v18h18M7 15l4-4 3 3 5-6"/>' };
 function ico(n) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + IC[n] + '</svg>'; }
 
 /* ---------- api ---------- */
@@ -344,12 +344,17 @@ function bars(rows, limits) {   // exposure bars; limits: {max:..}
 }
 
 /* ---------- navigation ---------- */
-var TABS = [['home', 'Home', 'home'], ['holdings', 'Holdings', 'list'], ['alerts', 'Alerts', 'bell'], ['plan', 'Plan', 'target'], ['more', 'More', 'more']];
+var TABS = [['home', 'Home', 'home'], ['holdings', 'Holdings', 'list'], ['wheel', 'Wheel', 'repeat'], ['plan', 'Plan', 'target'], ['more', 'More', 'more']];
 function drawTabs() {
-  $('#tabs').innerHTML = '<div class="nav">' + TABS.map(function (t) { return '<button class="' + (S.tab === t[0] ? 'on' : '') + '" onclick="go(\'' + t[0] + '\')">' + ico(t[2]) + t[1] + (t[0] === 'alerts' && S.unread ? '<span class="dot">' + S.unread + '</span>' : '') + '</button>'; }).join('') + '</div>';
+  $('#tabs').innerHTML = '<div class="nav">' + TABS.filter(function (t) { return t[0] !== 'wheel' || isAll(); }).map(function (t) { return '<button class="' + (S.tab === t[0] ? 'on' : '') + '" onclick="go(\'' + t[0] + '\')">' + ico(t[2]) + t[1] + '</button>'; }).join('') + '</div>';
+  drawBell();
 }
+/* alerts live behind the bell at the top of every screen (owner only) */
+function bellHtml() { return isAll() ? '<button class="iconbtn" id="bellbtn" onclick="openAlerts()" aria-label="Alerts">' + ico('bell') + (S.unread ? '<span class="dot">' + S.unread + '</span>' : '') + '</button>' : ''; }
+function drawBell() { var b = $('#bellbtn'); if (!b) return; var d = b.querySelector('.dot'); if (S.unread) { if (!d) { d = document.createElement('span'); d.className = 'dot'; b.appendChild(d); } d.textContent = S.unread; } else if (d) d.remove(); }
+function openAlerts() { if (S.stack.length && S.stack[S.stack.length - 1].name === 'alerts') return; push('alerts'); }
 function setTop(title, sub, left, right) {
-  $('#top').innerHTML = (left ? '<button class="iconbtn" onclick="back()">' + ico('back') + '</button>' : '') + '<h1>' + esc(title) + (sub ? '<span class="sub">' + sub + '</span>' : '') + '</h1>' + (right || '');
+  $('#top').innerHTML = (left ? '<button class="iconbtn" onclick="back()">' + ico('back') + '</button>' : '') + '<h1>' + esc(title) + (sub ? '<span class="sub">' + sub + '</span>' : '') + '</h1>' + (right || '') + bellHtml();
 }
 var SCREENS = {};
 /* Desktop only (900px and wider): lay the cards of Home and Plan out in two balanced columns. Banners, tabs and period chips stay full width.
@@ -652,7 +657,7 @@ function holdDetail(k) {
 
 /* ---------- Alerts ---------- */
 SCREENS.alerts = function () {
-  setTop('Alerts', '', false, refreshBtn());
+  setTop('Alerts', '', true, '');
   if (!isAll()) { $('#main').innerHTML = '<div class="empty">Alerts are for the owner.</div>'; return; }
   load('alerts', {}, function (d) { d = d || { rows: [], unread: 0 }; S.alertsData = d; S.unread = d.unread || 0; drawTabs(); drawAlerts(d); }, S.force); S.force = false;
 };
@@ -673,7 +678,7 @@ function alertAct(id, act, dest) {
   if (act === 'snooze') { return sheet('<h2>Snooze for how long?</h2><div class="btns">' + [1, 3, 7, 14, 30].map(function (n) { return '<button class="btn ghost" onclick="doAlert(\'' + id + '\',\'snooze\',' + n + ')">' + n + (n === 1 ? ' day' : ' days') + '</button>'; }).join('') + '</div>'); }
   doAlert(id, act);
 }
-function doAlert(id, act, days) { closeSheet(); api('alert_act', { id: id, act: act, days: days }).then(function (r) { toast(r.message); go('alerts'); S.force = true; }).catch(function (e) { toast(e.message); }); }
+function doAlert(id, act, days) { closeSheet(); api('alert_act', { id: id, act: act, days: days }).then(function (r) { toast(r.message); S.force = true; SCREENS.alerts(); }).catch(function (e) { toast(e.message); }); }
 
 /* trade review: one card per difference, with the decisions */
 SCREENS.review = function () {
@@ -1056,6 +1061,97 @@ document.addEventListener('visibilitychange', function () {
 });
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () {});
 window.addEventListener('DOMContentLoaded', boot);
+
+/* ---------- Wheel board: cash for puts, open puts, assignment check, shortlist ---------- */
+var WH = { d: null };
+var WHB = { OK: 'OK', WARN: 'WARN', BLOCK: 'RED', OVERRIDDEN: 'MANUAL', NOTE: '' };
+var WHT = { OK: 'Fits your limits', WARN: 'Over a warning limit', BLOCK: 'Over a red limit', OVERRIDDEN: 'Over a limit you allowed', NOTE: 'Note' };
+function whBadge(st) { return '<span class="badge ' + (WHB[st] || '') + '">' + esc(WHT[st] || st) + '</span>'; }
+function whItems(chk) {
+  if (!chk || !chk.items || !chk.items.length) return '';
+  return '<div class="tiny" style="margin-top:4px">' + chk.items.map(function (i) {
+    return esc(i.member || i.dim) + ' ' + (i.beforePct === null ? '' : pcp(i.beforePct) + ' → ') + pcp(i.afterPct) + (i.limitMax !== null && i.limitMax !== undefined ? ' (limit ' + i.limitMax + '%)' : (i.limitMin ? ' (minimum ' + i.limitMin + '%)' : '')) + (i.overridden ? ' · allowed by your override' : (i.isNew ? ' · new' : ' · already over, goes further'));
+  }).join('<br>') + '</div>';
+}
+SCREENS.wheel = function () {
+  setTop('Wheel', 'Cash-secured puts', false, refreshBtn());
+  if (!isAll()) { $('#main').innerHTML = '<div class="empty">The wheel board is for the owner.</div>'; return; }
+  load('wheel', {}, function (d) { WH.d = d; drawWheel(d); }, S.force); S.force = false;
+};
+function drawWheel(d) {
+  var h = '';
+  /* 1 cash */
+  h += '<div class="card"><div class="lbl tiny" style="text-transform:uppercase;font-weight:600;letter-spacing:.07em">Free to commit to new puts</div><div class="num" style="font-size:30px;font-weight:700;margin:2px 0 6px">' + usd(d.freeUsd) + '</div>';
+  d.capital.forEach(function (c) {
+    h += '<div class="row"><div class="grow"><div class="t">' + esc(c.broker) + ' <span class="tiny">' + esc(c.acct) + '</span></div><div class="s" style="white-space:normal">cash ' + usd(c.cashUsd) + ' · in ' + c.putsOpen + ' open put' + (c.putsOpen === 1 ? '' : 's') + ' ' + usd(c.committedUsd) + ' · kept back ' + usd(c.reserveUsd) + '</div></div><div class="r"><b>' + usd(c.freeUsd) + '</b><div class="tiny">free</div></div></div>';
+  });
+  if (!d.capital.length) h += '<div class="empty">No options account is set. Set opt_accounts in Settings.</div>';
+  h += '<div class="note">Free = cash, minus what open puts tie up, minus ' + d.rules.reservePct + '% of the account kept as a reserve (setting opt_cash_reserve_pct).</div></div>';
+  /* 2 open puts */
+  h += '<div class="card"><h3>Open puts' + (d.puts.length ? ' · ' + d.puts.length : '') + '</h3>';
+  if (!d.puts.length) h += '<div class="empty">No open puts</div>';
+  d.puts.forEach(function (p) {
+    var tone = p.verdict === 'HOLD' || p.verdict === 'CLOSE' ? 'OK' : 'WARN', a = p.ifAssigned;
+    h += '<div style="padding:10px 0;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><b>' + esc(p.asset) + ' ' + num(p.strike, 2) + ' put</b><div class="tiny">' + esc(p.id) + ' · expires ' + dshort(p.expiry) + ' · ' + p.dte + ' days · ' + p.contracts + ' contract' + (p.contracts === 1 ? '' : 's') + '</div></div><span class="badge ' + tone + '">' + esc(p.verdict) + '</span></div>'
+      + kv('Stock now', p.price === null ? 'no price yet' : num(p.price, 2) + ' <span class="tiny">(' + pc(p.moneynessPct, 1) + ' vs strike)</span>' + (p.priceStale ? ' <span class="tiny neg">OLD</span>' : ''))
+      + kv('Break-even', num(p.breakEven, 2) + (p.toBreakEvenPct === null ? '' : ' <span class="tiny">(stock is ' + pcp(Math.abs(p.toBreakEvenPct)) + (p.toBreakEvenPct >= 0 ? ' above' : ' below') + ')</span>'))
+      + kv('Premium', num(p.premium, 2) + ' ' + esc(p.ccy) + ' <span class="tiny">(' + num(p.premiumPerShare, 2) + ' a share' + (p.capturedPct !== null ? ' · ' + p.capturedPct + '% captured' : '') + ')</span>')
+      + kv('Cash tied up', usd(p.collateralUsd))
+      + '<div class="tiny" style="margin-top:6px"><b>If assigned:</b> ' + num(a.shares, 0) + ' shares at ' + num(a.costPerShare, 2) + (a.discountPct === null ? '' : ' (' + pcp(Math.abs(a.discountPct)) + (a.discountPct <= 0 ? ' below' : ' above') + ' today\'s price)') + ' · ' + whBadge(a.check.status) + '</div>' + whItems(a.check)
+      + (p.verdict !== 'HOLD' ? '<div class="tiny" style="margin-top:4px">' + esc(p.why) + '</div>' : '')
+      + '</div>';
+  });
+  if (d.puts.length) h += '<div class="btns"><button class="btn ghost sm" onclick="push(\'options\')">Close, expire or assign…</button>' + (can('trade_entry') ? '<button class="btn ghost sm" onclick="optEvent(\'STO\')">+ Sell a new put</button>' : '') + '</div>';
+  else if (can('trade_entry')) h += '<div class="btns"><button class="btn ghost sm" onclick="optEvent(\'STO\')">+ Sell a new put</button></div>';
+  h += '</div>';
+  /* 3 everything assigned */
+  if (d.puts.length) {
+    h += '<div class="card"><h3>If every open put were assigned</h3>' + kv('Cash needed', usd(d.assignAll.cashUsd) + ' <span class="tiny">(' + (d.assignAll.cashUsd <= (d.capital.reduce(function (s, c) { return s + c.cashUsd; }, 0)) ? 'covered by your cash' : 'more than your cash') + ')</span>')
+      + kv('Shares you would own', d.assignAll.shares.map(function (s) { return esc(s.asset) + ' ' + num(s.shares, 0); }).join(' · ')) + '<div style="margin-top:6px">' + whBadge(d.assignAll.check.status) + '</div>' + whItems(d.assignAll.check)
+      + '<div class="note">Checked against your limits tab, with the shares valued at today\'s price. Red limits stop a put, warning limits only warn. Sector groups in opt_override_groups (' + (d.rules.overrideGroups.length ? esc(d.rules.overrideGroups.join(', ')) : 'none') + ') are allowed to go over.</div></div>';
+  }
+  /* 4 shortlist */
+  h += '<div class="card"><h3>Your wheel list · ' + d.shortlist.length + '</h3>';
+  if (!d.shortlist.length) h += '<div class="empty">Nothing on the list yet. Add a stock below.</div>';
+  d.shortlist.forEach(function (s) {
+    var zb = s.zone === 'IN ZONE' ? 'OK' : s.zone === 'NEAR' ? 'WARN' : '';
+    h += '<div class="row tap" onclick="whEdit(\'' + esc(s.asset) + '\')"><div class="grow"><div class="t">' + esc(s.asset) + ' <span class="badge ' + zb + '">' + esc(s.zone || 'NO PRICE LIMIT') + '</span> <span class="tiny">' + esc(s.stage.toLowerCase()) + '</span></div><div class="s">' + (s.price === null ? 'no price yet' : num(s.price, 2)) + (s.priceStale && s.price !== null ? ' (old)' : '') + ' · own below ' + (s.ownBelow ? num(s.ownBelow, 2) : 'not set') + (s.abovePct !== null && s.zone !== 'IN ZONE' ? ' · ' + pcp(s.abovePct) + ' above' : '') + ' · ' + (esc(s.group) || '<span class="neg">sector not set</span>') + (s.ungrouped ? ' (no group)' : '') + '</div></div><div class="r">' + (s.oneContract.cashUsd ? '<div class="tiny">1 contract</div><b>' + usd(s.oneContract.cashUsd) + '</b>' : '') + '</div></div>';
+  });
+  if (can('settings')) h += '<div class="btns"><button class="btn ghost sm" onclick="whAdd()">+ Add a stock</button></div>';
+  h += '</div>';
+  /* 5 suggestions */
+  if (d.suggestions.length && can('settings')) {
+    h += '<div class="card"><h3>Suggested to add</h3>' + d.suggestions.map(function (s) {
+      return '<div class="row"><div class="grow"><div class="t">' + esc(s.asset) + ' <span class="tiny">' + esc(s.reason) + '</span></div><div class="s">' + esc(s.name || '') + (s.price !== null ? ' · ' + num(s.price, 2) : '') + (s.entryHigh ? ' · your entry zone tops out at ' + num(s.entryHigh, 0) : '') + '</div></div><button class="btn sm ghost" onclick="whAddQuick(\'' + esc(s.asset) + '\',this)">Add</button></div>';
+    }).join('') + '<div class="note">"Own below" starts at the top of your entry zone (watchlist) and can be changed by tapping the stock.</div></div>';
+  }
+  h += '<div class="note">Next on this board: the put finder (ranked candidates with a top pick), then covered calls after assignment. Nothing here places an order.</div>';
+  $('#main').innerHTML = h;
+}
+function whDone(r) { toast(r.message); clearCache(); S.force = true; SCREENS.wheel(); }
+function whAddQuick(id, btn) { busy(btn, true); api('wheel_add', { asset: id }).then(whDone).catch(function (e) { busy(btn, false); toast(e.message); }); }
+function whSectorSel(cur) {
+  var d = WH.d || { sectors: [] };
+  return '<label class="field"><span>Sector' + (cur ? '' : ' (not set: the sector-group limits cannot judge this stock without one)') + '</span><select id="whs"><option value="">' + (cur ? esc(cur) : '— choose —') + '</option>' + d.sectors.filter(function (x) { return x !== cur; }).map(function (x) { return '<option>' + esc(x) + '</option>'; }).join('') + '</select></label>';
+}
+function whAdd() {
+  sheet('<h2>Add a stock to the wheel list</h2><label class="field"><span>US stock symbol</span><input id="wha" autocapitalize="characters" placeholder="e.g. MU"></label><label class="field"><span>Own below (the most you are happy to pay per share)</span><input id="who" inputmode="decimal" placeholder="optional"></label>' + whSectorSel('') + '<div class="btns"><button class="btn" id="whb" onclick="whAddGo()">Add</button></div>');
+}
+function whAddGo() {
+  var b = $('#whb'); busy(b, true);
+  api('wheel_add', { asset: $('#wha').value, ownBelow: $('#who').value, sector: $('#whs').value }).then(function (r) { closeSheet(); whDone(r); }).catch(function (e) { busy(b, false); toast(e.message); });
+}
+function whEdit(id) {
+  var s = (WH.d.shortlist || []).filter(function (x) { return x.asset === id; })[0]; if (!s || !can('settings')) return;
+  sheet('<h2>' + esc(id) + '</h2><div class="tiny" style="margin:-6px 0 12px">' + esc(s.name || '') + ' · ' + (s.price === null ? 'no price yet' : num(s.price, 2)) + ' · ' + esc(s.stage.toLowerCase()) + '</div><label class="field"><span>Own below (the most you are happy to pay per share)</span><input id="who" inputmode="decimal" value="' + (s.ownBelow || '') + '"></label>' + whSectorSel(s.sector)
+    + (s.oneContract.cashUsd ? '<div class="tiny">One contract at that price needs ' + usd(s.oneContract.cashUsd) + ' · ' + esc(WHT[s.oneContract.check.status] || '') + '</div>' + whItems(s.oneContract.check) : '')
+    + '<div class="btns"><button class="btn" id="whb" onclick="whSave(\'' + esc(id) + '\')">Save</button><button class="btn danger" onclick="whRemove(\'' + esc(id) + '\')">Remove from list</button></div>');
+}
+function whSave(id) {
+  var b = $('#whb'); busy(b, true);
+  api('wheel_set', { asset: id, ownBelow: $('#who').value, sector: $('#whs').value }).then(function (r) { closeSheet(); whDone(r); }).catch(function (e) { busy(b, false); toast(e.message); });
+}
+function whRemove(id) { api('wheel_remove', { asset: id }).then(function (r) { closeSheet(); whDone(r); }).catch(function (e) { toast(e.message); }); }
 
 </script>
 </body>
