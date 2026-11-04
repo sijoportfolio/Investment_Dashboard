@@ -586,8 +586,8 @@ function holdSummary(rows) {
     else { var seen = {}; keys.forEach(function (k) { seen[k] = 1; }); xkeys = keys.slice();
       cl.rows.filter(passF).filter(function (r) { return !HLD.q || matchQ(r, HLD.q); }).forEach(function (r) { if (!seen[r.key]) { seen[r.key] = 1; xkeys.push(r.key); soldN++; soldGain += r.gainUsd; } }); }
   }
-  var un = val - cost, tot = un + real + inc, x = xirrFor(xkeys, val, S.hold.asOf), share = S.ov ? val / (S.ov.valueUsd + (liveDelta() || 0)) * 100 : null;
-  return sumBox([['Value', usd(val), '', n + ' position' + (n === 1 ? '' : 's') + (share !== null ? ' · ' + pcp(share) + ' of portfolio' : '')], ['Today', usdS(day), cls(day), pc(dayBase ? day / dayBase * 100 : 0, 2)], ['Unrealised', usdS(un), cls(un), pc(cost > 0 ? un / cost * 100 : null, 1) + ' on cost ' + usd(cost)], ['Total return', usdS(tot), cls(tot), 'with realised ' + usdS(real) + ' and income ' + usd(inc)], ['XIRR', x ? pc(x.x, 1) : '–', x ? cls(x.x) : '', x ? (x.short ? 'under a year: treat with care' : (HLD.incSold ? 'incl. ' + soldN + ' sold position' + (soldN === 1 ? '' : 's') + ' (realised ' + usdS(soldGain) + ')' : 'positions still held, incl. past sales and income')) : (HLD.incSold && !S.mem.closed ? 'loading sold positions…' : 'needs money in and out')], ['Cost', usd(cost), '', 'what you paid for what you hold']]);
+  var un = val - cost, tot = un + real + inc + (HLD.incSold ? soldGain : 0), x = xirrFor(xkeys, val, S.hold.asOf), share = S.ov ? val / (S.ov.valueUsd + (liveDelta() || 0)) * 100 : null;
+  return sumBox([['Value', usd(val), '', n + ' position' + (n === 1 ? '' : 's') + (share !== null ? ' · ' + pcp(share) + ' of portfolio' : '')], ['Today', usdS(day), cls(day), pc(dayBase ? day / dayBase * 100 : 0, 2)], ['Unrealised', usdS(un), cls(un), pc(cost > 0 ? un / cost * 100 : null, 1) + ' on cost ' + usd(cost)], ['Total return', usdS(tot), cls(tot), (HLD.incSold && soldN ? 'incl. ' + soldN + ' sold position' + (soldN === 1 ? '' : 's') + ' · realised ' + usdS(real + soldGain) + ' and income ' + usd(inc) : 'with realised ' + usdS(real) + ' and income ' + usd(inc))], ['XIRR', x ? pc(x.x, 1) : '–', x ? cls(x.x) : '', x ? (x.short ? 'under a year: treat with care' : (HLD.incSold ? 'incl. ' + soldN + ' sold position' + (soldN === 1 ? '' : 's') + ' (realised ' + usdS(soldGain) + ')' : 'positions still held, incl. past sales and income')) : (HLD.incSold && !S.mem.closed ? 'loading sold positions…' : 'needs money in and out')], ['Cost', usd(cost), '', 'what you paid for what you hold']]);
 }
 var HSORT = { value: function (r) { return r.valueUsd; }, gain: function (r) { return r.unrealizedUsd; }, pct: function (r) { return r.unrealizedPct; }, day: function (r) { return r.dayPct; }, weight: function (r) { return r.weightPct; }, name: function (r) { return r.asset; }, acct: function (r) { return r.acct + r.asset; }, sector: function (r) { return (r.sector || '') + r.asset; } };
 function holdSort(k) { setSort(HLD, k, (k === 'name' || k === 'acct' || k === 'sector') ? 1 : -1); drawHold(); }
@@ -674,7 +674,7 @@ function alertCard(a, quiet) {
     + (quiet ? '' : '<div class="btns">' + a.actions.map(function (x) { return '<button class="btn sm ' + (x.kind === 'ghost' ? 'ghost' : '') + '" onclick="alertAct(\'' + esc(a.id) + '\',\'' + x.id + '\',\'' + (x.go || '') + '\')">' + esc(x.label) + '</button>'; }).join('') + '</div>') + '</div>';
 }
 function alertAct(id, act, dest) {
-  if (act === 'go' || act === 'open_trades') { if (dest === 'review') return push('review'); if (dest === 'prices') return push('prices'); if (dest === 'options') return push('options'); if (dest === 'tax') return push('tax'); return go(dest || 'plan'); }
+  if (act === 'go' || act === 'open_trades') { if (dest === 'review') return push('review'); if (dest === 'prices') return push('prices'); if (dest === 'options') return push('options'); if (dest === 'watchlist') return push('watchlist'); if (dest === 'tax') return push('tax'); return go(dest || 'plan'); }
   if (act === 'snooze') { return sheet('<h2>Snooze for how long?</h2><div class="btns">' + [1, 3, 7, 14, 30].map(function (n) { return '<button class="btn ghost" onclick="doAlert(\'' + id + '\',\'snooze\',' + n + ')">' + n + (n === 1 ? ' day' : ' days') + '</button>'; }).join('') + '</div>'); }
   doAlert(id, act);
 }
@@ -786,7 +786,7 @@ function stressTab(d) {
 SCREENS.more = function () {
   setTop('More', '', false, '');
   var full = isAll(), it = function (ic, t, s, fn, show) { return show === false ? '' : '<div class="row tap" onclick="' + fn + '"><div class="avatar" style="font-size:18px">' + ic + '</div><div class="grow"><div class="t">' + t + '</div><div class="s">' + s + '</div></div><span class="mut">›</span></div>'; };
-  $('#main').innerHTML = '<div class="card" style="padding:4px 16px">' + it('➕', 'Add a transaction', 'Buy or sell, with a correction option', 'addTx()', can('trade_entry')) + it('↔️', 'Transactions', 'Every ledger entry', "push('tx')") + it('💵', 'Income', 'Dividends and interest', "push('income')") + it('🧾', 'Tax', 'Gains, estimate, harvesting, estate', "push('tax')", full) + it('📈', 'Options', 'What to do with each open option', "push('options')", full) + '</div>'
+  $('#main').innerHTML = '<div class="card" style="padding:4px 16px">' + it('➕', 'Add a transaction', 'Buy or sell, with a correction option', 'addTx()', can('trade_entry')) + it('↔️', 'Transactions', 'Every ledger entry', "push('tx')") + it('💵', 'Income', 'Dividends and interest', "push('income')") + it('🧾', 'Tax', 'Gains, estimate, harvesting, estate', "push('tax')", full) + it('📈', 'Options', 'What to do with each open option', "push('options')", full) + it('👀', 'Watchlist', 'Stocks to buy at the right price, with entry zones', "push('watchlist')", full) + '</div>'
     + '<div class="card" style="padding:4px 16px">' + it('🏷️', 'Prices', 'Health of every price, enter one by hand', "push('prices')", can('prices')) + it('✅', 'Trade check', 'Ledger vs market data', "push('review')", can('review')) + it('📄', 'Reports', 'PDF or Excel for any view', "push('reports')") + '</div>'
     + '<div class="card" style="padding:4px 16px">' + it('⚙️', 'Settings', 'Limits, targets, tax rules, sleeves', "push('settings')", can('settings')) + it('🔑', 'Access keys', 'Who can open this app', "push('keys')", can('keys')) + it('🛠️', 'Owner tools', 'Refresh now, rebuild history', "push('tools')", can('owner_jobs')) + it('👤', 'This device', 'Face ID or fingerprint, your key, theme', "push('account')") + '</div>'
     + '<div class="note" style="text-align:center">Portfolio v8 · data as of ' + (S.ov ? dshort(S.ov.asOf) : '') + '</div>';
@@ -799,11 +799,11 @@ SCREENS.tx = function () {
   load('transactions', {}, function (d) { S.tx = d; drawTx(); });
 };
 function drawTx() {
-  $('#main').innerHTML = '<input class="search" placeholder="Search id, asset, account, date" value="' + esc(TXQ.q) + '" oninput="TXQ.q=this.value;TXQ.n=60;txList()">' + sortBar(TXQ, [['date', 'Date'], ['asset', 'Asset'], ['amount', 'Amount'], ['action', 'Type'], ['acct', 'Account']], 'txSort') + '<div id="tl"></div>'; txList();
+  $('#main').innerHTML = tfBar('transactions', function () { return S.tx.rows; }, 'drawTx') + '<input class="search" placeholder="Search id, asset, account, date" value="' + esc(TXQ.q) + '" oninput="TXQ.q=this.value;TXQ.n=60;txList()">' + sortBar(TXQ, [['date', 'Date'], ['asset', 'Asset'], ['amount', 'Amount'], ['action', 'Type'], ['acct', 'Account']], 'txSort') + '<div id="tl"></div>'; txList();
 }
 function txList() {
-  var d = S.tx, q = TXQ.q.toLowerCase(), rows = sorted(d.rows.filter(function (r) { return !q || (r.id + ' ' + r.asset + ' ' + r.acct + ' ' + r.type + ' ' + r.action + ' ' + r.date).toLowerCase().indexOf(q) >= 0; }), TXQ, TSORT), shown = rows.slice(0, TXQ.n);
-  $('#tl').innerHTML = '<div class="card" style="padding:4px 16px">' + shown.map(function (r) {
+  var d = S.tx, q = TXQ.q.toLowerCase(), rows = sorted(d.rows.filter(function (r) { return tfPass(r, 'date') && (!q || (r.id + ' ' + r.asset + ' ' + r.acct + ' ' + r.type + ' ' + r.action + ' ' + r.date).toLowerCase().indexOf(q) >= 0); }), TXQ, TSORT), shown = rows.slice(0, TXQ.n);
+  $('#tl').innerHTML = (tfAny() ? '<div class="tiny" style="margin:0 4px 6px">' + rows.length + ' of ' + d.rows.length + ' entries match</div>' : '') + '<div class="card" style="padding:4px 16px">' + shown.map(function (r) {
     return '<div class="row"><div class="avatar" style="font-size:10px">' + esc(String(r.action || r.type).slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(r.asset || r.type) + (r.status && r.status !== 'CONFIRMED' ? ' <span class="badge WARN">' + esc(r.status) + '</span>' : '') + '</div><div class="s">' + dshort(r.date) + ' · ' + esc(r.acct) + ' · ' + esc(r.id) + '</div></div><div class="r"><div class="t">' + (r.gross !== null && r.gross !== undefined ? mny(r.gross, r.ccy, 2) : '') + '</div><div class="s">' + (r.qty ? num(r.qty, 4) + ' @ ' + num(r.price, 2) : '') + '</div></div></div>'; }).join('') + '</div>'
     + (rows.length > shown.length ? '<div class="btns" style="justify-content:center"><button class="btn ghost" onclick="TXQ.n+=60;txList()">Show more (' + (rows.length - shown.length) + ')</button></div>' : '');
 }
@@ -812,7 +812,8 @@ var ISORT = { date: function (r) { return r.date; }, asset: function (r) { retur
 function incSort(k) { setSort(INQ, k, (k === 'asset' || k === 'acct') ? 1 : -1); drawIncome(); }
 function drawIncome() {
   var d = S.mem.income; if (!d) return;
-  $('#main').innerHTML = '<div class="card"><h3>By year</h3>' + d.byYear.map(function (y) { return kv(y.year, usd(y.usd)); }).join('') + kv('<b>Total</b>', '<b>' + usd(d.totalUsd) + '</b>') + '</div>' + sortBar(INQ, [['date', 'Date'], ['amount', 'Amount'], ['asset', 'Asset'], ['acct', 'Account']], 'incSort') + '<div class="card" style="padding:4px 16px">' + sorted(d.rows, INQ, ISORT).slice(0, 120).map(function (r) {
+  var irows = d.rows.filter(function (r) { return tfPass(r, 'date'); }), by = {}, tot = 0; irows.forEach(function (r) { var y = r.date.slice(0, 4); by[y] = (by[y] || 0) + r.usd; tot += r.usd; });
+  $('#main').innerHTML = tfBar('income', function () { return S.mem.income.rows; }, 'drawIncome') + '<div class="card"><h3>By year</h3>' + Object.keys(by).sort().map(function (y) { return kv(y, usd(by[y])); }).join('') + kv('<b>Total' + (tfAny() ? ' (filtered)' : '') + '</b>', '<b>' + usd(tot) + '</b>') + '</div>' + sortBar(INQ, [['date', 'Date'], ['amount', 'Amount'], ['asset', 'Asset'], ['acct', 'Account']], 'incSort') + '<div class="card" style="padding:4px 16px">' + sorted(irows, INQ, ISORT).slice(0, 120).map(function (r) {
     var loc = r.ccy && r.ccy !== 'USD';
     return '<div class="row"><div class="avatar" style="font-size:11px">' + esc(r.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(r.asset) + '</div><div class="s">' + dshort(r.date) + ' · ' + esc(r.acct) + (r.tds ? ' · tax withheld ' + num(r.tds, 0) : '') + '</div></div><div class="r"><div class="t">' + (loc ? mny(r.gross, r.ccy, 2) + '<div class="usd2">' + usd(r.usd, 2) + '</div>' : usd(r.usd, 2)) + '</div></div></div>'; }).join('') + '</div>';
 }
@@ -902,6 +903,7 @@ SCREENS.reports = function () {
   setTop('Reports', '', true);
   var full = isAll(), kinds = Object.keys(REPS).filter(function (k) { return full || ['overview', 'holdings', 'closed', 'transactions', 'income'].indexOf(k) >= 0; });
   $('#main').innerHTML = '<div class="card"><h3>What</h3><div class="chips" style="flex-wrap:wrap">' + kinds.map(function (k) { return '<button class="chip ' + (REP.kind === k ? 'on' : '') + '" onclick="REP.kind=\'' + k + '\';SCREENS.reports()">' + REPS[k] + '</button>'; }).join('') + '</div><h3 style="margin-top:12px">Format</h3><div class="seg"><button class="' + (REP.fmt === 'pdf' ? 'on' : '') + '" onclick="REP.fmt=\'pdf\';SCREENS.reports()">PDF</button><button class="' + (REP.fmt === 'xls' ? 'on' : '') + '" onclick="REP.fmt=\'xls\';SCREENS.reports()">Excel</button><button class="' + (REP.fmt === 'csv' ? 'on' : '') + '" onclick="REP.fmt=\'csv\';SCREENS.reports()">CSV</button></div><div class="note">' + (REP.fmt === 'pdf' ? 'Opens the print sheet: choose "Save as PDF".' : REP.fmt === 'xls' ? 'Downloads a spreadsheet file for Excel (numbers stay numbers, header in bold).' : 'Downloads a plain .csv file for Excel, Sheets or other tools.') + '</div><div class="btns"><button class="btn" onclick="makeReport(this)">Create ' + REPS[REP.kind] + ' report</button></div></div>';
+  $('#main').firstChild.insertAdjacentHTML('afterend', '<div class="card" id="repf"></div>'); repFilter();
 };
 function reportTable(kind, d) {
   var T = function (head, rows) { return { head: head, rows: rows }; };
@@ -917,7 +919,8 @@ function makeReport(btn) {
   busy(btn, true);
   var kind = REP.kind, act = kind === 'overview' ? 'overview' : kind;
   api(act).then(function (d) {
-    var t = reportTable(kind, d), title = 'Portfolio · ' + REPS[kind] + ' · ' + ((S.ov && S.ov.asOf) || '');
+    if (TFDIMS[kind] && d.rows) { var dk = TFDATE[kind]; d = Object.assign({}, d, { rows: d.rows.filter(function (r) { return tfPass(r, dk); }) }); }
+    var t = reportTable(kind, d), title = 'Portfolio · ' + REPS[kind] + (TFDIMS[kind] && tfAny() ? ' (filtered)' : '') + ' · ' + ((S.ov && S.ov.asOf) || '');
     if (REP.fmt === 'xls') {
       var x = function (c) { return String(c === null || c === undefined ? '' : c).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
       var xml = '<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="h"><Font ss:Bold="1"/></Style></Styles><Worksheet ss:Name="' + x(REPS[kind]).slice(0, 30) + '"><Table><Row>' + t.head.map(function (h) { return '<Cell ss:StyleID="h"><Data ss:Type="String">' + x(h) + '</Data></Cell>'; }).join('') + '</Row>' + t.rows.map(function (r) { return '<Row>' + r.map(function (c) { return (typeof c === 'number' && isFinite(c)) ? '<Cell><Data ss:Type="Number">' + c + '</Data></Cell>' : '<Cell><Data ss:Type="String">' + x(c) + '</Data></Cell>'; }).join('') + '</Row>'; }).join('') + '</Table></Worksheet></Workbook>';
@@ -1008,11 +1011,11 @@ function bioUnlock() {
 }
 
 /* ---------- option events ---------- */
-function optEvent(ev, id) {
+function optEvent(ev, id, pre) {
   var o = id ? ((S.mem.options || { open: [] }).open.filter(function (x) { return x.id === id; })[0]) : null, today = (S.ov && S.ov.asOf) || new Date().toISOString().slice(0, 10);
   today = new Date().toISOString().slice(0, 10);
   var title = { BTC: 'Bought back', EXPIRE: 'Expired', ASSIGN: 'Assigned', STO: 'Sell a new option' }[ev];
-  if (ev === 'STO') { return Promise.all([api('accounts'), api('assets')]).then(function (r) { sheet('<h2>' + title + '</h2><label class="field"><span>Account</span><select id="oa">' + r[0].map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.broker + ' · ' + a.id) + '</option>'; }).join('') + '</select></label><label class="field"><span>Asset</span><input id="os" autocapitalize="characters"></label><div class="seg"><button id="op" class="on" onclick="$(\'#op\').className=\'on\';$(\'#oc\').className=\'\';S.optType=\'PUT\'">Put</button><button id="oc" onclick="$(\'#oc\').className=\'on\';$(\'#op\').className=\'\';S.optType=\'CALL\'">Call</button></div><div class="grid2"><label class="field"><span>Date</span><input type="date" id="od" value="' + today + '"></label><label class="field"><span>Expiry</span><input type="date" id="oe"></label><label class="field"><span>Strike</span><input type="number" step="any" id="ok"></label><label class="field"><span>Contracts</span><input type="number" id="on" value="1"></label><label class="field"><span>Premium per share</span><input type="number" step="any" id="opr"></label><label class="field"><span>Commission</span><input type="number" step="any" id="of"></label></div><div class="btns"><button class="btn" id="ob" onclick="saveOpt(\'STO\',\'\')">Save</button></div>'); S.optType = 'PUT'; }); }
+  if (ev === 'STO') { return Promise.all([api('accounts'), api('assets')]).then(function (r) { sheet('<h2>' + title + '</h2><label class="field"><span>Account</span><select id="oa">' + r[0].map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.broker + ' · ' + a.id) + '</option>'; }).join('') + '</select></label><label class="field"><span>Asset</span><input id="os" autocapitalize="characters"></label><div class="seg"><button id="op" class="on" onclick="$(\'#op\').className=\'on\';$(\'#oc\').className=\'\';S.optType=\'PUT\'">Put</button><button id="oc" onclick="$(\'#oc\').className=\'on\';$(\'#op\').className=\'\';S.optType=\'CALL\'">Call</button></div><div class="grid2"><label class="field"><span>Date</span><input type="date" id="od" value="' + today + '"></label><label class="field"><span>Expiry</span><input type="date" id="oe"></label><label class="field"><span>Strike</span><input type="number" step="any" id="ok"></label><label class="field"><span>Contracts</span><input type="number" id="on" value="1"></label><label class="field"><span>Premium per share</span><input type="number" step="any" id="opr"></label><label class="field"><span>Commission</span><input type="number" step="any" id="of"></label></div><div class="btns"><button class="btn" id="ob" onclick="saveOpt(\'STO\',\'\')">Save</button></div>'); S.optType = 'PUT'; var sel = $('#oa'), want = (pre && pre.acct) || (WH.d && WH.d.rules.accounts[0]) || ''; if (sel) { var pick = null; [].forEach.call(sel.options, function (o) { if (!pick && (o.value === want || (!want && /IBKR/i.test(o.text)))) pick = o; }); if (!pick) [].forEach.call(sel.options, function (o) { if (!pick && /IBKR/i.test(o.text)) pick = o; }); if (pick) sel.value = pick.value; } if (pre) { if (pre.asset) $('#os').value = pre.asset; if (pre.strike) $('#ok').value = pre.strike; if (pre.expiry) $('#oe').value = pre.expiry; if (pre.price) $('#opr').value = pre.price; } }); }
   sheet('<h2>' + title + ' · ' + esc(o ? o.asset + ' ' + o.type + ' ' + o.strike : id) + '</h2><p class="mut sm">' + esc(id) + ' · ' + (o ? o.contracts + ' contract(s), expires ' + dshort(o.expiry) : '') + '</p><label class="field"><span>Date</span><input type="date" id="od" value="' + today + '"></label>' + (ev === 'BTC' ? '<div class="grid2"><label class="field"><span>Price per share</span><input type="number" step="any" inputmode="decimal" id="opr" oninput="optGross(' + (o ? o.contracts * o.multiplier : 100) + ')"></label><label class="field"><span>Commission</span><input type="number" step="any" inputmode="decimal" id="of"></label></div><div class="mut sm" id="og"></div>' : '<label class="field"><span>Commission (if any)</span><input type="number" step="any" id="of"></label>') + '<div class="btns"><button class="btn" id="ob" onclick="saveOpt(\'' + ev + '\',\'' + esc(id) + '\')">Save</button></div>');
 }
 function optGross(mult) { var p = +$('#opr').value; $('#og').textContent = p >= 0 && $('#opr').value !== '' ? 'Paid to close ' + num(p * mult, 2) : ''; }
@@ -1125,7 +1128,7 @@ function drawWheel(d) {
       return '<div class="row"><div class="grow"><div class="t">' + esc(s.asset) + ' <span class="tiny">' + esc(s.reason) + '</span></div><div class="s">' + esc(s.name || '') + (s.price !== null ? ' · ' + num(s.price, 2) : '') + (s.entryHigh ? ' · your entry zone tops out at ' + num(s.entryHigh, 0) : '') + '</div></div><button class="btn sm ghost" onclick="whAddQuick(\'' + esc(s.asset) + '\',this)">Add</button></div>';
     }).join('') + '<div class="note">"Own below" starts at the top of your entry zone (watchlist) and can be changed by tapping the stock.</div></div>';
   }
-  h += '<div class="note">Next on this board: the put finder (ranked candidates with a top pick), then covered calls after assignment. Nothing here places an order.</div>';
+  h += '<div class="btns" style="margin:0 0 10px"><button class="btn ghost sm" onclick="push(\'watchlist\')">Open your watchlist</button></div><div class="note">Next on this board: the put finder (ranked candidates with a top pick), then covered calls after assignment. Nothing here places an order.</div>';
   $('#main').innerHTML = h;
 }
 function whDone(r) { toast(r.message); clearCache(); S.force = true; SCREENS.wheel(); }
@@ -1152,6 +1155,95 @@ function whSave(id) {
   api('wheel_set', { asset: id, ownBelow: $('#who').value, sector: $('#whs').value }).then(function (r) { closeSheet(); whDone(r); }).catch(function (e) { busy(b, false); toast(e.message); });
 }
 function whRemove(id) { api('wheel_remove', { asset: id }).then(function (r) { closeSheet(); whDone(r); }).catch(function (e) { toast(e.message); }); }
+
+/* ---------- Watchlist: stocks you want to buy at the right price ---------- */
+var WL = { d: null };
+SCREENS.watchlist = function () {
+  setTop('Watchlist', 'Entry zones and warnings', true, can('settings') ? '<button class="iconbtn" onclick="wlAdd()" aria-label="Add">' + ico('plus') + '</button>' : '');
+  if (!isAll()) { $('#main').innerHTML = '<div class="empty">The watchlist is for the owner.</div>'; return; }
+  load('watchlist', {}, function (d) { WL.d = d; drawWatch(d); }, S.force); S.force = false;
+};
+function drawWatch(d) {
+  var h = '';
+  if (d.inZone) h += '<div class="banner"><b>' + d.inZone + ' stock' + (d.inZone === 1 ? ' is' : 's are') + ' in your entry zone</b> · ' + d.rows.filter(function (r) { return r.zone === 'IN ZONE' || r.zone === 'BELOW ZONE'; }).map(function (r) { return esc(r.asset); }).join(', ') + '</div>';
+  else if (d.near) h += '<div class="note" style="margin:0 4px 10px">' + d.near + ' within ' + d.nearPct + '% of its zone. None inside yet.</div>';
+  if (!d.rows.length) h += '<div class="card"><div class="empty">Nothing on your watchlist yet.</div></div>';
+  d.rows.forEach(function (w) {
+    var zb = w.zone === 'IN ZONE' ? 'OK' : w.zone === 'BELOW ZONE' ? 'WARN' : w.zone === 'NEAR' ? 'WARN' : '', zt = w.zone === 'IN ZONE' ? 'IN ZONE' : w.zone === 'BELOW ZONE' ? 'BELOW ZONE' : (w.distPct !== null ? pcp(Math.abs(w.distPct)) + ' above zone' : (w.price === null ? 'NO PRICE YET' : 'NO ZONE SET'));
+    var zone = (w.low && w.high) ? num(w.low, 2) + ' – ' + num(w.high, 2) : (w.high ? 'up to ' + num(w.high, 2) : 'not set');
+    var wk = (w.week52Low && w.week52High) ? '52 weeks ' + num(w.week52Low, 2) + ' – ' + num(w.week52High, 2) : '';
+    h += '<div class="card' + (w.zone === 'IN ZONE' ? ' alert INFO' : '') + '"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div style="min-width:0"><div><b>' + esc(w.asset) + '</b> <span class="badge ' + zb + '">' + esc(zt) + '</span>' + (w.priority ? ' <span class="badge">' + esc(w.priority) + '</span>' : '') + (w.onWheel ? ' <span class="badge MANUAL">wheel</span>' : '') + '</div>'
+      + '<div class="tiny" style="margin-top:3px">' + [esc(w.name || ''), esc(w.sector || '')].filter(Boolean).join(' · ') + '</div></div><div class="r" style="text-align:right"><div class="num" style="font-weight:700">' + (w.price === null ? 'no price yet' : num(w.price, 2)) + '</div>' + (w.priceStale && w.price !== null ? '<div class="tiny neg">old price</div>' : '<div class="tiny">' + esc(w.ccy || '') + '</div>') + '</div></div>'
+      + kv('Entry zone', zone) + (wk ? kv('Range', wk) : '') + (w.upsidePct !== null ? kv('Analyst target', num(w.target, 0) + ' <span class="tiny">(' + pc(w.upsidePct, 0) + ')</span>') : '') + (w.conviction !== null ? kv('Conviction', w.conviction + ' / 10') : '')
+      + (w.notes ? '<div class="tiny" style="margin-top:6px">' + esc(w.notes) + '</div>' : '')
+      + (can('settings') ? '<div class="btns"><button class="btn ghost sm" onclick="wlEdit(\'' + esc(w.asset) + '\')">Edit</button><button class="btn ghost sm" onclick="wlWheel(\'' + esc(w.asset) + '\',' + (w.onWheel ? 'false' : 'true') + ',this)">' + (w.onWheel ? 'Off the wheel list' : '+ Wheel list') + '</button></div>' : '') + '</div>';
+  });
+  h += '<div class="note">Zone = the price range you would like to buy in. In zone means the price is at or below the top of it. A bell alert is raised when a stock enters its zone. Prices are the last close.</div>';
+  $('#main').innerHTML = h;
+}
+function wlDone(r) { toast(r.message); clearCache(); S.force = true; SCREENS.watchlist(); }
+function wlFields(w) {
+  return '<div class="grid2"><label class="field"><span>Zone: from</span><input id="wll" inputmode="decimal" value="' + (w && w.low || '') + '"></label><label class="field"><span>Zone: up to (buy at or below)</span><input id="wlh" inputmode="decimal" value="' + (w && w.high || '') + '"></label></div>'
+    + '<label class="field"><span>Priority</span><input id="wlp" list="wlpl" value="' + esc(w && w.priority || '') + '"><datalist id="wlpl"><option>NOW</option><option>PATIENT</option><option>OPPORTUNISTIC</option></datalist></label><label class="field"><span>Notes</span><input id="wln" value="' + esc(w && w.notes || '') + '"></label>';
+}
+function wlAdd() {
+  var sec = (WH.d && WH.d.sectors) || [];
+  sheet('<h2>Add to the watchlist</h2><label class="field"><span>US stock symbol</span><input id="wla" autocapitalize="characters" placeholder="e.g. AMD"></label>' + wlFields(null) + '<label class="field"><span>Sector (needed for the limit checks)</span><select id="wls"><option value="">— choose —</option>' + sec.map(function (x) { return '<option>' + esc(x) + '</option>'; }).join('') + '</select></label><div class="btns"><button class="btn" id="wlb" onclick="wlAddGo()">Add</button></div>');
+}
+function wlAddGo() { var b = $('#wlb'); busy(b, true); api('watch_add', { asset: $('#wla').value, low: $('#wll').value, high: $('#wlh').value, priority: $('#wlp').value, notes: $('#wln').value, sector: $('#wls').value }).then(function (r) { closeSheet(); wlDone(r); }).catch(function (e) { busy(b, false); toast(e.message); }); }
+function wlEdit(id) {
+  var w = (WL.d.rows || []).filter(function (x) { return x.asset === id; })[0]; if (!w) return;
+  sheet('<h2>' + esc(id) + '</h2><div class="tiny" style="margin:-6px 0 12px">' + esc(w.name || '') + ' · ' + (w.price === null ? 'no price yet' : num(w.price, 2)) + '</div>' + wlFields(w) + '<div class="btns"><button class="btn" id="wlb" onclick="wlSave(\'' + esc(id) + '\')">Save</button><button class="btn danger" onclick="wlRemove(\'' + esc(id) + '\')">Remove from watchlist</button></div>');
+}
+function wlSave(id) { var b = $('#wlb'); busy(b, true); api('watch_save', { asset: id, low: $('#wll').value, high: $('#wlh').value, priority: $('#wlp').value, notes: $('#wln').value }).then(function (r) { closeSheet(); wlDone(r); }).catch(function (e) { busy(b, false); toast(e.message); }); }
+function wlRemove(id) { api('watch_remove', { asset: id }).then(function (r) { closeSheet(); wlDone(r); }).catch(function (e) { toast(e.message); }); }
+function wlWheel(id, on, btn) { busy(btn, true); api(on ? 'wheel_add' : 'wheel_remove', { asset: id }).then(wlDone).catch(function (e) { busy(btn, false); toast(e.message); }); }
+
+/* ---------- filters for the reporting screens: Transactions, Income and Reports ----------
+   Several values per group (for example brokers IBKR and Wio), a date range, and the same choice follows you between these three screens. */
+var TF = {}, TFR = { from: '', to: '' }, TFX = { kind: '', rows: null, redraw: '', date: '', vals: [], dim: '' };
+var TFDIMS = { transactions: [['broker', 'Broker'], ['account', 'Account'], ['region', 'Region'], ['type', 'Type']], income: [['broker', 'Broker'], ['account', 'Account'], ['region', 'Region']],
+  closed: [['broker', 'Broker'], ['account', 'Account'], ['region', 'Region'], ['sector', 'Sector']], holdings: [['broker', 'Broker'], ['account', 'Account'], ['region', 'Region'], ['sector', 'Sector']] };
+var TFDATE = { transactions: 'date', income: 'date', closed: 'lastSell', holdings: '' };
+function tfN() { var n = 0; for (var k in TF) n += TF[k].length; return n; }
+function tfAny() { return tfN() || TFR.from || TFR.to; }
+function tfPass(r, dateKey) {
+  for (var k in TF) { if (TF[k].length && TF[k].indexOf((r.dims || {})[k] || '') < 0) return false; }
+  var d = dateKey ? r[dateKey] : null; if (d) { d = String(d).slice(0, 10); if (TFR.from && d < TFR.from) return false; if (TFR.to && d > TFR.to) return false; }
+  return true;
+}
+function tfBar(kind, rowsFn, redraw) {
+  TFX = { kind: kind, rows: rowsFn, redraw: redraw, date: TFDATE[kind] || '', vals: [], dim: '' };
+  var pills = [], dn = {}; TFDIMS[kind].forEach(function (d) { dn[d[0]] = d[1]; });
+  Object.keys(TF).forEach(function (k) { if (dn[k]) TF[k].forEach(function (v, i) { pills.push('<button class="chip on" onclick="tfDrop(\'' + k + '\',' + i + ')">' + esc(v || '(none)') + ' ✕</button>'); }); });
+  var h = '<div class="chips"><button class="chip ' + (tfN() ? 'on' : '') + '" onclick="tfSheet()">⚲ Filter' + (tfN() ? ' · ' + tfN() : '') + '</button>' + pills.join('') + (tfAny() ? '<button class="chip" onclick="tfClear()">Clear</button>' : '') + '</div>';
+  if (TFX.date) h += '<div class="frow"><span class="tiny">From</span><input type="date" class="sel" value="' + TFR.from + '" onchange="TFR.from=this.value;tfApply()"><span class="tiny">to</span><input type="date" class="sel" value="' + TFR.to + '" onchange="TFR.to=this.value;tfApply()">'
+    + '<button class="chip" onclick="tfPreset(\'ytd\')">This year</button><button class="chip" onclick="tfPreset(\'ly\')">Last year</button><button class="chip" onclick="tfPreset(\'90\')">90 days</button><button class="chip" onclick="tfPreset(\'all\')">All</button></div>';
+  return h;
+}
+function tfApply() { closeSheet(); if (typeof window[TFX.redraw] === 'function') window[TFX.redraw](); }
+function tfClear() { TF = {}; TFR = { from: '', to: '' }; tfApply(); }
+function tfPreset(p) { var t = new Date(); if (p === 'ytd') TFR = { from: isoD(new Date(t.getFullYear(), 0, 1)), to: isoD(t) }; else if (p === 'ly') TFR = { from: isoD(new Date(t.getFullYear() - 1, 0, 1)), to: isoD(new Date(t.getFullYear() - 1, 11, 31)) }; else if (p === '90') TFR = { from: isoD(new Date(t.getTime() - 90 * 86400000)), to: isoD(t) }; else TFR = { from: '', to: '' }; tfApply(); }
+function tfDrop(k, i) { if (TF[k]) { TF[k].splice(i, 1); if (!TF[k].length) delete TF[k]; } tfApply(); }
+function tfSheet(dim) {
+  var dims = TFDIMS[TFX.kind], rows = (TFX.rows && TFX.rows()) || []; dim = dim || TFX.dim || dims[0][0]; TFX.dim = dim;
+  var cnt = {}; rows.forEach(function (r) { var v = (r.dims || {})[dim] || ''; cnt[v] = (cnt[v] || 0) + 1; });
+  TFX.vals = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; });
+  var h = '<h2>Filter</h2><p class="mut sm">Choose several values in a group. Entries must match every group you use.</p><div class="chips" style="flex-wrap:wrap">' + dims.map(function (d) { return '<button class="chip ' + (dim === d[0] ? 'on' : '') + '" onclick="tfSheet(\'' + d[0] + '\')">' + d[1] + (TF[d[0]] && TF[d[0]].length ? ' · ' + TF[d[0]].length : '') + '</button>'; }).join('') + '</div><div style="margin-top:8px">';
+  h += TFX.vals.map(function (v, i) { var on = (TF[dim] || []).indexOf(v) >= 0; return '<div class="row tap" onclick="tfTick(' + i + ')"><div class="grow"><div class="t">' + esc(v || '(none)') + '</div></div><span class="tiny">' + cnt[v] + '</span><span class="ck ' + (on ? 'on' : '') + '">' + (on ? '✓' : '') + '</span></div>'; }).join('') + '</div>';
+  h += '<div class="btns"><button class="btn" onclick="tfApply()">Show</button><button class="btn ghost" onclick="tfClear()">Clear all</button></div>';
+  sheet(h);
+}
+function tfTick(i) { var dim = TFX.dim, v = TFX.vals[i], a = TF[dim] = TF[dim] || [], k = a.indexOf(v); if (k >= 0) a.splice(k, 1); else a.push(v); if (!a.length) delete TF[dim]; tfSheet(dim); }
+/* the filter card on the Reports screen: it loads the rows of the chosen report so the choices show real counts */
+function repFilter() {
+  var el = $('#repf'); if (!el) return; var k = REP.kind;
+  if (!TFDIMS[k]) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  if (REP.rowsKind === k && REP.rows) { el.innerHTML = '<h3>Include only</h3>' + tfBar(k, function () { return REP.rows; }, 'repFilter') + '<div class="note">The download follows these choices.</div>'; return; }
+  el.innerHTML = '<h3>Include only</h3><div class="tiny">Loading…</div>';
+  load(k, {}, function (d) { REP.rows = d.rows || []; REP.rowsKind = k; repFilter(); }, false, true);
+}
 
 </script>
 </body>
