@@ -152,11 +152,23 @@ td.cbest{background:rgba(46,204,113,.16)}td.cworst{background:rgba(255,92,92,.16
 
 .stat.pos{background:rgba(52,201,143,.11);box-shadow:inset 4px 0 0 var(--pos)}.stat.neg{background:rgba(255,107,107,.11);box-shadow:inset 4px 0 0 var(--neg)}
 .stat.pos .v,.stat.neg .v{font-weight:800}
+.row.up{box-shadow:inset 3px 0 0 var(--pos)}.row.dn{box-shadow:inset 3px 0 0 var(--neg)}
+
+#prog{display:none}
+#comet{position:fixed;inset:0;width:100%;height:100%;z-index:59;pointer-events:none;opacity:0;transition:opacity .25s}
+#comet rect{width:calc(100% - 3px);height:calc(100% - 3px);fill:none;stroke:var(--acc);stroke-width:3;stroke-linecap:round;stroke-dasharray:16 84;filter:drop-shadow(0 0 6px var(--acc)) drop-shadow(0 0 14px var(--acc));animation:cm 2.6s linear infinite}
+#prog.on ~ #comet{opacity:1}
+body.nocomet #comet{display:none}
+@keyframes cm{from{stroke-dashoffset:0}to{stroke-dashoffset:-100}}
+@media (prefers-reduced-motion:reduce){#comet rect{animation:none;stroke-dasharray:100 0;opacity:.5}}
+
+.row .s.chg{display:inline-block;padding:2px 9px;border-radius:9px;font-weight:700;margin-top:2px}.row .s.chg.pos{background:rgba(52,201,143,.16);color:var(--pos)}.row .s.chg.neg{background:rgba(255,107,107,.16);color:var(--neg)}
+.row.up{background:linear-gradient(90deg,rgba(52,201,143,.10),transparent 45%);box-shadow:inset 4px 0 0 var(--pos)}.row.dn{background:linear-gradient(90deg,rgba(255,107,107,.10),transparent 45%);box-shadow:inset 4px 0 0 var(--neg)}
 
 </style>
 </head>
 <body>
-<div id="prog"></div><div id="app"><div id="top"></div><div id="ptr"></div><div id="main"></div></div>
+<div id="prog"></div><svg id="comet" aria-hidden="true"><rect id="cometr" x="1.5" y="1.5" rx="38" ry="38" pathLength="100"/></svg><div id="app"><div id="top"></div><div id="ptr"></div><div id="main"></div></div>
 <div id="tabs"></div>
 <div id="sheetbg" onclick="closeSheet()"></div><div id="sheet"></div>
 <div id="toast"></div><div id="upd"></div>
@@ -224,6 +236,7 @@ function usd(n, d) { if (n === null || n === undefined || isNaN(n)) return '–'
 function usdS(n, d) { if (n === null || n === undefined || isNaN(n)) return '–'; return (n > 0 ? '+' : '') + usd(n, d); }
 function pc(n, d) { if (n === null || n === undefined || isNaN(n)) return '–'; return (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n).toFixed(d === undefined ? 1 : d) + '%'; }
 function pcp(n, d) { if (n === null || n === undefined || isNaN(n)) return '–'; return Number(n).toFixed(d === undefined ? 1 : d) + '%'; }
+function arw(n) { return n > 0 ? '▲ ' : n < 0 ? '▼ ' : ''; }
 function cls(n) { return n > 0 ? 'pos' : n < 0 ? 'neg' : ''; }
 function num(n, d) { if (n === null || n === undefined || isNaN(n)) return '–'; return Number(n).toLocaleString('en-US', { maximumFractionDigits: d === undefined ? 2 : d }); }
 function dshort(iso) { if (!iso) return ''; var m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], p = String(iso).slice(0, 10).split('-'); return +p[2] + ' ' + m[+p[1] - 1] + ' ' + p[0]; }
@@ -453,7 +466,7 @@ function drawHome(o, meta) {
   }
   if (ld !== null) h += '<div class="tiny" style="margin-top:2px">' + usdS(ld) + ' vs the saved ' + dshort(o.asOf) + ' close of ' + usd(o.valueUsd) + '</div>';
   if (full && o.dayGainUsd !== null && ld === null) h += '<div class="num ' + cls(o.dayGainUsd) + '" style="font-weight:600;margin-top:2px">' + usdS(o.dayGainUsd) + ' (' + pc(o.dayGainPct, 2) + ') <span class="mut sm" style="font-weight:500">last trading day</span></div>';
-  h += '<div class="grid2" style="margin-top:16px"><div class="stat"><div class="k">Invested</div><div class="v">' + usd(o.investedUsd + (ld || 0)) + '</div></div><div class="stat"><div class="k">Cash</div><div class="v">' + usd(o.cashUsd) + '</div></div>' + (o.unrealizedUsd !== null && o.unrealizedUsd !== undefined && o.costUsd ? (function () { var u = o.unrealizedUsd + (ld || 0); return '<div class="stat ' + cls(u) + '" style="grid-column:1/-1"><div class="k">Overall gain or loss on what you hold</div><div class="v">' + usdS(u) + ' <span class="sm">(' + pc(u / o.costUsd * 100, 1) + ' on cost ' + usd(o.costUsd) + ')</span></div></div>'; })() : '') + '</div></div>';
+  h += '<div class="grid2" style="margin-top:16px"><div class="stat"><div class="k">Invested</div><div class="v">' + usd(o.investedUsd + (ld || 0)) + '</div></div><div class="stat tap" onclick="push(\'cash\')"><div class="k">Cash ›</div><div class="v">' + usd(o.cashUsd) + '</div></div>' + (o.unrealizedUsd !== null && o.unrealizedUsd !== undefined && o.costUsd ? (function () { var u = o.unrealizedUsd + (ld || 0); return '<div class="stat ' + cls(u) + '" style="grid-column:1/-1"><div class="k">Overall gain or loss on what you hold</div><div class="v">' + usdS(u) + ' <span class="sm">(' + pc(u / o.costUsd * 100, 1) + ' on cost ' + usd(o.costUsd) + ')</span></div></div>'; })() : '') + '</div></div>';
   var hl = o.health || {}, bad = (hl.STALE || 0) + (hl.FAILING || 0) + (hl.ESTIMATED || 0);
   if (bad) h += '<div class="banner tap" onclick="push(\'prices\')"><span>⚠️</span><div class="grow"><b>' + bad + ' price' + (bad > 1 ? 's' : '') + ' need a look</b><div class="sm mut">' + (hl.STALE || 0) + ' stale · ' + (hl.FAILING || 0) + ' failing · ' + (hl.ESTIMATED || 0) + ' estimated. Tap to fix.</div></div></div>';
   if (full) {
@@ -462,9 +475,9 @@ function drawHome(o, meta) {
     var nav = o.series, from = sel ? sel.from : nav[0][0], sub = nav.filter(function (r) { return r[0] >= from; });
     var inv = [], cum = 0, ix = {}; o.flows.forEach(function (f) { if (f[2] !== 'INCOME_OUT') ix[f[0]] = (ix[f[0]] || 0) - f[1]; });
     var all = nav.map(function (r) { cum += (ix[r[0]] || 0); return [r[0], cum]; }); var invMap = {}; all.forEach(function (r) { invMap[r[0]] = r[1]; });
-    h += '<div class="card"><div class="seg" style="margin-bottom:8px"><button class="' + (HOME.view === 'value' ? 'on' : '') + '" onclick="HOME.view=\'value\';drawHome(S.ov)">Value</button><button class="' + (HOME.view === 'return' ? 'on' : '') + '" onclick="HOME.view=\'return\';drawHome(S.ov)">Return</button></div>';
+    h += '<div class="card">' + homeCmpBar() + '<div class="seg" style="margin-bottom:8px"><button class="' + (HOME.view === 'value' ? 'on' : '') + '" onclick="HOME.view=\'value\';drawHome(S.ov)">Value</button><button class="' + (HOME.view === 'return' ? 'on' : '') + '" onclick="HOME.view=\'return\';drawHome(S.ov)">Return</button></div>';
     if (HOME.view === 'value') h += lineChart('c1', [{ pts: sub.map(function (r) { return [r[0], r[1]]; }), color: 'var(--acc)', fill: true }, { pts: sub.map(function (r) { return [r[0], invMap[r[0]]]; }), color: 'var(--tx3)', w: 1.5, dash: true }]) + '<div class="legend"><span><i style="background:var(--acc)"></i>Value</span><span><i style="background:var(--tx3)"></i>Money put in</span></div>';
-    else { var b0 = sub.length ? sub[0][2] : 1; h += lineChart('c1', [{ pts: sub.map(function (r) { return [r[0], (r[2] / b0 - 1) * 100]; }), color: 'var(--acc)', fill: true }], { fmt: function (v) { return pc(v, 1); } }) + '<div class="legend"><span><i style="background:var(--acc)"></i>Return since ' + dshort(from) + ' (time-weighted, deposits removed)</span></div>'; }
+    else { h += homeReturn(o, sub, from); if ((HOME.cmp.length && HOME.cmp.some(function (s) { return !S.benchTried[s]; })) || (HOME.accts && !S.navacct && !S.navTried)) { var again = function () { if (S.tab === 'home' && !S.stack.length && S.ov) drawHome(S.ov); }; if (HOME.cmp.length) hLoadBench(again); if (HOME.accts) hLoadNav(again); } }
     if (sel) h += '<div class="grid2" style="margin-top:12px"><div class="stat"><div class="k">Return</div><div class="v ' + cls(sel.twrPct) + '">' + pc(sel.twrPct, 1) + '</div><div class="tiny">' + (sel.twrAnnualPct !== null ? pc(sel.twrAnnualPct, 1) + ' a year' : sel.days + ' days: not annualised') + '</div></div><div class="stat"><div class="k">Gain</div><div class="v ' + cls(sel.gainUsd) + '">' + usdS(sel.gainUsd) + '</div><div class="tiny">' + (sel.xirrReliable ? 'XIRR ' + pc(sel.xirrPct, 1) : 'XIRR needs a year') + '</div></div></div>';
     h += '</div>';
     h += '<div class="card"><h3>Since you started</h3>' + kv('Put in (net)', usd(o.netMoneyInUsd)) + kv('Total gain', '<span class="' + cls(o.totalGainUsd) + '">' + usdS(o.totalGainUsd) + '</span>') + kv('Money-weighted (XIRR)', pc(o.xirrPct, 2)) + kv('Time-weighted', pc(o.twrPct, 1) + ' · ' + pc(o.twrAnnualPct, 1) + ' a year') + kv('Unrealised', '<span class="' + cls(o.unrealizedUsd) + '">' + usdS(o.unrealizedUsd) + '</span>') + kv('Realised', '<span class="' + cls(o.realizedUsd) + '">' + usdS(o.realizedUsd) + '</span>') + kv('Income received', usd(o.incomeUsd)) + (o.optionsOtherUsd ? kv('Options and other', '<span class="' + cls(o.optionsOtherUsd) + '">' + usdS(o.optionsOtherUsd) + '</span>') : '') + '</div>';
@@ -494,7 +507,7 @@ var HLD = { q: '', sort: 'value', dir: -1, mode: 'open', incSold: false }, CLD =
 var FILT = {};   /* { dimension: [chosen values] }  - same filters on open and closed positions */
 var DIMS = [['region', 'Region'], ['broker', 'Broker'], ['account', 'Account'], ['sector', 'Sector'], ['group', 'Theme'], ['cap', 'Size'], ['tier', 'Tier'], ['assetClass', 'Class'], ['currency', 'Currency']];
 SCREENS.holdings = function () {
-  setTop('Holdings', '', false, refreshBtn());
+  setTop('Holdings', '', false, refreshBtn() + (can('trade_entry') ? '<button class="iconbtn" onclick="addEntry({type:\'BUY\'})" aria-label="Add entry">' + ico('plus') + '</button>' : ''));
   load('holdings', {}, function (d, meta) { S.hold = d; drawHold(); liveRefresh(); }, S.force); S.force = false;
 };
 function healthBadge(r) { return r.health && r.health !== 'OK' ? '<span class="badge ' + r.health + '">' + r.health + '</span>' : ''; }
@@ -597,7 +610,7 @@ function holdSummary(rows) {
   }
   if (incm && cl) incm.rows.forEach(function (r) { var k = r.acct + '|' + r.asset; if (keys.indexOf(k) >= 0 || !dimsOf[k]) return; if (!seen[k]) return; soldInc += r.usd; });
   var un = val - cost, realAll = real + soldGain, incAll = inc + soldInc, tot = un + realAll + incAll, x = xirrFor(xkeys, val, S.hold.asOf), share = S.ov ? val / (S.ov.valueUsd + (liveDelta() || 0)) * 100 : null;
-  return sumBox([['Value', usd(val), '', n + ' position' + (n === 1 ? '' : 's') + (share !== null ? ' · ' + pcp(share) + ' of portfolio' : '')], ['Today', usdS(day), cls(day), pc(dayBase ? day / dayBase * 100 : 0, 2)], ['Unrealised', usdS(un), cls(un), pc(cost > 0 ? un / cost * 100 : null, 1) + ' on cost ' + usd(cost)], ['Total return', usdS(tot), cls(tot), 'all time: realised ' + usdS(realAll) + (soldN ? ' (incl. ' + soldN + ' sold position' + (soldN === 1 ? '' : 's') + ')' : '') + ' and income ' + usd(incAll) + ((!cl || !incm) ? ' · loading sold positions…' : '')], ['XIRR', x ? pc(x.x, 1) : '–', x ? cls(x.x) : '', x ? (x.short ? 'under a year: treat with care' : (HLD.incSold ? 'incl. ' + soldN + ' sold position' + (soldN === 1 ? '' : 's') + ' (realised ' + usdS(soldGain) + ')' : 'positions still held, incl. past sales and income')) : (HLD.incSold && !S.mem.closed ? 'loading sold positions…' : 'needs money in and out')], ['Cost of what you hold', usd(cost), '', 'excludes money from positions you sold']]);
+  return sumBox([['Value', usd(val), '', n + ' position' + (n === 1 ? '' : 's') + (share !== null ? ' · ' + pcp(share) + ' of portfolio' : '')], ['Today', usdS(day), cls(day), pc(dayBase ? day / dayBase * 100 : 0, 2)], ['Unrealised', usdS(un), cls(un), pc(cost > 0 ? un / cost * 100 : null, 1) + ' on cost ' + usd(cost)], ['Total return', usdS(tot), cls(tot), 'all time: realised ' + usdS(realAll) + (soldN ? ' (incl. ' + soldN + ' sold position' + (soldN === 1 ? '' : 's') + ')' : '') + ' and income ' + usd(incAll) + ((!cl || !incm) ? ' · loading sold positions…' : '')], ['XIRR', x ? pc(x.x, 1) : '–', x ? cls(x.x) : '', x ? (x.short ? 'under a year: treat with care' : (HLD.incSold ? 'incl. ' + soldN + ' sold position' + (soldN === 1 ? '' : 's') + ' (realised ' + usdS(soldGain) + ')' : 'positions still held, incl. past sales and income')) : (HLD.incSold && !S.mem.closed ? 'loading sold positions…' : 'needs money in and out')], ['Cost of what you hold', usd(cost), '', (function () { var ov = S.ov; if (!ov || ov.netMoneyInUsd === undefined || ov.netMoneyInUsd === null || filtAny() || HLD.q) return 'what you paid for these positions'; var own = Math.max(0, ov.netMoneyInUsd - (ov.cashUsd || 0)), re = cost - own; return re > 0 ? usd(own) + ' of your own money still invested + ' + usd(re) + ' of profits you reinvested' : 'what you paid for these positions'; })()]]);
 }
 var HSORT = { value: function (r) { return r.valueUsd; }, gain: function (r) { return r.unrealizedUsd; }, pct: function (r) { return r.unrealizedPct; }, day: function (r) { return r.dayPct; }, weight: function (r) { return r.weightPct; }, name: function (r) { return r.asset; }, acct: function (r) { return r.acct + r.asset; }, sector: function (r) { return (r.sector || '') + r.asset; } };
 function holdSort(k) { setSort(HLD, k, (k === 'name' || k === 'acct' || k === 'sector') ? 1 : -1); drawHold(); }
@@ -611,9 +624,9 @@ function drawHold() {
 /* local currency first; the dollar equivalent small underneath (nothing extra for dollar positions) */
 function holdRight(r) {
   var loc = r.currency && r.currency !== 'USD' && r.valueLocal !== null && r.valueLocal !== undefined;
-  if (!loc) return '<div class="t">' + usd(r.valueUsd) + '</div><div class="s ' + cls(r.unrealizedUsd) + '">' + usdS(r.unrealizedUsd) + ' · ' + pc(r.unrealizedPct, 0) + '</div>';
+  if (!loc) return '<div class="t">' + usd(r.valueUsd) + '</div><div class="s chg ' + cls(r.unrealizedUsd) + '">' + arw(r.unrealizedUsd) + usdS(r.unrealizedUsd) + ' · ' + pc(r.unrealizedPct, 0) + '</div>';
   var g = r.valueLocal - r.cost;
-  return '<div class="t">' + mny(r.valueLocal, r.currency) + '</div><div class="s ' + cls(g) + '">' + mnyS(g, r.currency) + ' · ' + pc(r.unrealizedPct, 0) + '</div><div class="usd2">' + usd(r.valueUsd) + ' · ' + usdS(r.unrealizedUsd) + '</div>';
+  return '<div class="t">' + mny(r.valueLocal, r.currency) + '</div><div class="s chg ' + cls(g) + '">' + arw(g) + mnyS(g, r.currency) + ' · ' + pc(r.unrealizedPct, 0) + '</div><div class="usd2">' + usd(r.valueUsd) + ' · ' + usdS(r.unrealizedUsd) + '</div>';
 }
 /* today's price and how much it moved, green up and red down */
 function priceLine(r) {
@@ -626,7 +639,7 @@ function holdList() {
   var hs = $('#hs'); if (hs) hs.innerHTML = holdSummary(HLD.q ? rows : pool);
   $('#hl').innerHTML = (CMP.on ? cmpBar() : '') + '<div class="card" style="padding:4px 16px">' + (rows.map(function (r) {
     var on = CMP.sel.indexOf(r.key) >= 0;
-    return '<div class="row tap' + (on ? ' picked' : '') + '" onclick="' + (CMP.on ? 'cmpTick(\'' + esc(r.key) + '\')' : 'holdDetail(\'' + esc(r.key) + '\')') + '">' + (CMP.on ? '<span class="ck ' + (on ? 'on' : '') + '">' + (on ? '✓' : '') + '</span>' : '') + '<div class="avatar">' + esc(r.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(r.asset) + ' ' + healthBadge(r) + '</div><div class="s px" style="white-space:normal">' + (r.live ? '<span class="livetag">' + (r.ext ? (r.state === 'PRE' ? 'pre-market' : 'after hrs') : 'live') + '</span>' : '') + priceLine(r) + '</div><div class="s">' + esc(r.name === r.asset ? (r.sector || '') : r.name) + ' · ' + pcp(r.weightPct) + '</div></div><div class="r">' + holdRight(r) + '</div></div>';
+    return '<div class="row tap ' + (r.unrealizedUsd > 0 ? 'up' : r.unrealizedUsd < 0 ? 'dn' : '') + (on ? ' picked' : '') + '" onclick="' + (CMP.on ? 'cmpTick(\'' + esc(r.key) + '\')' : 'holdDetail(\'' + esc(r.key) + '\')') + '">' + (CMP.on ? '<span class="ck ' + (on ? 'on' : '') + '">' + (on ? '✓' : '') + '</span>' : '') + '<div class="avatar">' + esc(r.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(r.asset) + ' ' + healthBadge(r) + '</div><div class="s px" style="white-space:normal">' + (r.live ? '<span class="livetag">' + (r.ext ? (r.state === 'PRE' ? 'pre-market' : 'after hrs') : 'live') + '</span>' : '') + priceLine(r) + '</div><div class="s">' + esc(r.name === r.asset ? (r.sector || '') : r.name) + ' · ' + pcp(r.weightPct) + '</div></div><div class="r">' + holdRight(r) + '</div></div>';
   }).join('') || '<div class="empty">Nothing matches</div>') + '</div><div class="tiny" style="text-align:center">' + usd(d.totalUsd) + ' at last close' + (S.live ? ' · live ' + liveStamp() + ' (' + S.live.got + '/' + S.live.asked + ' quotes; some exchanges are delayed by Yahoo)' : '') + '</div>';
 }
 var CSORT = { date: function (r) { return r.lastSell; }, gain: function (r) { return r.gainUsd; }, pct: function (r) { return r.returnPct; }, name: function (r) { return r.asset; }, opened: function (r) { return r.firstBuy; }, acct: function (r) { return r.acct + r.asset; } };
@@ -647,7 +660,7 @@ function closedList() {
   var cs = $('#cs'); if (cs) cs.innerHTML = closedSummary(CLD.q ? rows : pool);
   $('#cl').innerHTML = '<div class="card" style="padding:4px 16px">' + rows.map(function (r) {
     var loc = r.ccy && r.ccy !== 'USD' && r.gainLocal !== undefined;
-    return '<div class="row tap" onclick="closedDetail(\'' + esc(r.key) + '\')"><div class="avatar">' + esc(r.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(r.asset) + '</div><div class="s">' + dshort(r.firstBuy) + ' → ' + dshort(r.lastSell) + '</div></div><div class="r"><div class="t ' + cls(r.gainUsd) + '">' + (loc ? mnyS(r.gainLocal, r.ccy) : usdS(r.gainUsd)) + '</div><div class="s">' + pc(r.returnPct, 0) + '</div>' + (loc ? '<div class="usd2">' + usdS(r.gainUsd) + '</div>' : '') + '</div></div>'; }).join('') + '</div>';
+    return '<div class="row tap ' + (r.gainUsd > 0 ? 'up' : r.gainUsd < 0 ? 'dn' : '') + '" onclick="closedDetail(\'' + esc(r.key) + '\')"><div class="avatar">' + esc(r.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(r.asset) + '</div><div class="s">' + dshort(r.firstBuy) + ' → ' + dshort(r.lastSell) + '</div></div><div class="r"><div class="t ' + cls(r.gainUsd) + '">' + arw(r.gainUsd) + (loc ? mnyS(r.gainLocal, r.ccy) : usdS(r.gainUsd)) + '</div><div class="s chg ' + cls(r.gainUsd) + '">' + arw(r.gainUsd) + pc(r.returnPct, 0) + '</div>' + (loc ? '<div class="usd2">' + usdS(r.gainUsd) + '</div>' : '') + '</div></div>'; }).join('') + '</div>';
 }
 function closedDetail(k) {
   var r = (S.mem.closed || { rows: [] }).rows.filter(function (x) { return x.key === k; })[0]; if (!r) return;
@@ -796,7 +809,7 @@ function stressTab(d) {
 SCREENS.more = function () {
   setTop('More', '', false, '');
   var full = isAll(), it = function (ic, t, s, fn, show) { return show === false ? '' : '<div class="row tap" onclick="' + fn + '"><div class="avatar" style="font-size:18px">' + ic + '</div><div class="grow"><div class="t">' + t + '</div><div class="s">' + s + '</div></div><span class="mut">›</span></div>'; };
-  $('#main').innerHTML = '<div class="card" style="padding:4px 16px">' + it('➕', 'Add a transaction', 'Buy or sell, with a correction option', 'addTx()', can('trade_entry')) + it('↔️', 'Transactions', 'Every ledger entry', "push('tx')", scr('transactions')) + it('💵', 'Income', 'Dividends and interest', "push('income')", scr('income')) + it('🎯', 'Plan & risk', 'Goal, risk, stress tests', "go('plan')", full && scr('plan')) + it('🧾', 'Tax', 'Gains, estimate, harvesting, estate', "push('tax')", full && scr('plan')) + it('📈', 'Options', 'What to do with each open option', "push('options')", full && scr('options')) + '</div>'
+  $('#main').innerHTML = '<div class="card" style="padding:4px 16px">' + it('➕', 'Add entry', 'Buy, sell, deposit, withdrawal, transfer, dividend, interest, fee, option', 'addEntry()', can('trade_entry')) + it('💰', 'Cash', 'Balance per account and latest movements', "push('cash')") + it('↔️', 'Transactions', 'Every ledger entry', "push('tx')", scr('transactions')) + it('💵', 'Income', 'Dividends and interest', "push('income')", scr('income')) + it('🎯', 'Plan & risk', 'Goal, risk, stress tests', "go('plan')", full && scr('plan')) + it('🧾', 'Tax', 'Gains, estimate, harvesting, estate', "push('tax')", full && scr('plan')) + it('📈', 'Options', 'What to do with each open option', "push('options')", full && scr('options')) + '</div>'
     + '<div class="card" style="padding:4px 16px">' + it('🏷️', 'Prices', 'Health of every price, enter one by hand', "push('prices')", can('prices')) + it('✅', 'Trade check', 'Ledger vs market data', "push('review')", can('review')) + it('📄', 'Reports', 'PDF or Excel for any view', "push('reports')", scr('reports')) + '</div>'
     + '<div class="card" style="padding:4px 16px">' + it('⚙️', 'Settings', 'Limits, targets, tax rules, sleeves', "push('settings')", can('settings')) + it('🔑', 'Access keys', 'Who can open this app', "push('keys')", can('keys')) + it('🛠️', 'Owner tools', 'Refresh now, rebuild history', "push('tools')", can('owner_jobs')) + it('👤', 'This device', 'Face ID or fingerprint, your key, theme', "push('account')") + '</div>'
     + '<div class="note" style="text-align:center">Portfolio v8 · data as of ' + (S.ov ? dshort(S.ov.asOf) : '') + '</div>';
@@ -805,7 +818,7 @@ var TXQ = { q: '', n: 60, sort: 'date', dir: -1 };
 var TSORT = { date: function (r) { return r.date + r.id; }, asset: function (r) { return r.asset || r.type || ''; }, amount: function (r) { return r.gross; }, acct: function (r) { return r.acct + r.date; }, action: function (r) { return r.action || r.type || ''; } };
 function txSort(k) { setSort(TXQ, k, (k === 'asset' || k === 'acct' || k === 'action') ? 1 : -1); TXQ.n = 60; drawTx(); }
 SCREENS.tx = function () {
-  setTop('Transactions', '', true, can('trade_entry') ? '<button class="iconbtn" onclick="addTx()">' + ico('plus') + '</button>' : '');
+  setTop('Transactions', '', true, (can('trade_entry') ? '<button class="iconbtn" onclick="addEntry({type:\'BUY\'})" aria-label="Add entry">' + ico('plus') + '</button>' : ''));
   load('transactions', {}, function (d) { S.tx = d; drawTx(); });
 };
 function drawTx() {
@@ -827,7 +840,7 @@ function drawIncome() {
     var loc = r.ccy && r.ccy !== 'USD';
     return '<div class="row"><div class="avatar" style="font-size:11px">' + esc(r.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(r.asset) + '</div><div class="s">' + dshort(r.date) + ' · ' + esc(r.acct) + (r.tds ? ' · tax withheld ' + num(r.tds, 0) : '') + '</div></div><div class="r"><div class="t">' + (loc ? mny(r.gross, r.ccy, 2) + '<div class="usd2">' + usd(r.usd, 2) + '</div>' : usd(r.usd, 2)) + '</div></div></div>'; }).join('') + '</div>';
 }
-SCREENS.income = function () { setTop('Income', '', true); load('income', {}, function (d) { drawIncome(); }); };
+SCREENS.income = function () { setTop('Income', '', true, (can('trade_entry') ? '<button class="iconbtn" onclick="addEntry({type:\'DIVIDEND\'})" aria-label="Add entry">' + ico('plus') + '</button>' : '')); load('income', {}, function (d) { drawIncome(); }); };
 
 /* ---------- Tax ---------- */
 SCREENS.tax = function () {
@@ -845,7 +858,7 @@ SCREENS.tax = function () {
 
 /* ---------- Options: say what to do ---------- */
 SCREENS.options = function () {
-  setTop('Options', 'What to do with each one', true);
+  setTop('Options', 'What to do with each one', true, (can('trade_entry') ? '<button class="iconbtn" onclick="addEntry({type:\'OPTION\'})" aria-label="Add entry">' + ico('plus') + '</button>' : ''));
   load('options', {}, function (d) {
     var h = '';
     if (!d.open.length) h += '<div class="card"><div class="empty">No open options</div></div>';
@@ -1002,11 +1015,14 @@ SCREENS.account = function () {
   var bio = !!LS.get('pv8bio'), th = LS.get('pv8theme') || 'auto';
   $('#main').innerHTML = '<div class="card"><h3>Signed in</h3>' + kv('Name', esc(S.who.name)) + kv('Role', esc(S.who.role)) + kv('Accounts', S.who.scope === 'ALL' ? 'All' : esc(S.who.scope.join(', '))) + '</div>'
     + '<div class="card"><h3>Unlock</h3><div class="sm mut">' + (bioSupported() ? 'Use Face ID, Touch ID or your fingerprint to open the app. Typing the key always still works.' : 'This device or browser does not offer biometric unlock.') + '</div><div class="btns">' + (bioSupported() ? (bio ? '<button class="btn danger" onclick="bioOff()">Turn off biometric unlock</button>' : '<button class="btn" onclick="bioOn()">Turn on biometric unlock</button>') : '') + '' + (S.who.keyEdit ? '<button class="btn ghost" onclick="changeKey()">Change my key</button>' : '') + '</div></div>'
+    + '<div class="card"><h3>Refresh animation</h3><div class="seg"><button class="' + (LS.get('pv8comet') !== 'off' ? 'on' : '') + '" onclick="setComet(true)">Comet on</button><button class="' + (LS.get('pv8comet') === 'off' ? 'on' : '') + '" onclick="setComet(false)">Off</button></div><div class="note">A light travels around the screen edge while data is loading.</div></div>'
     + '<div class="card"><h3>Look</h3><div class="seg">' + ['auto', 'dark', 'light'].map(function (t) { return '<button class="' + (th === t ? 'on' : '') + '" onclick="setTheme(\'' + t + '\')">' + t[0].toUpperCase() + t.slice(1) + '</button>'; }).join('') + '</div></div>'
     + '<div class="card"><div class="btns"><button class="btn danger" onclick="signOut()">Sign out of this device</button></div><div class="note">Signing out removes the key from this device.</div></div>';
 };
+function setComet(on) { LS.set('pv8comet', on ? 'on' : 'off'); applyComet(); SCREENS.account(); }
+function applyComet() { document.body.classList.toggle('nocomet', LS.get('pv8comet') === 'off'); }
 function setTheme(t) { LS.set('pv8theme', t); applyTheme(); SCREENS.account(); }
-function applyTheme() { var t = LS.get('pv8theme') || 'auto'; if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); }
+function applyTheme() { applyComet(); var t = LS.get('pv8theme') || 'auto'; if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); }
 function changeKey() { sheet('<h2>Change my key</h2><p class="mut sm">A new key is made and shown once. The old one stops working at once.</p><label class="field"><span>Type your current key</span><input id="ck" type="password" autocomplete="off"></label><div class="btns"><button class="btn" id="cb" onclick="doChangeKey()">Make a new key</button></div>'); }
 function doChangeKey() { var b = $('#cb'); busy(b, true); api('change_own_key', { current: $('#ck').value }).then(function (r) { S.key = r.key; LS.set('pv8key', r.key); sheet('<h2>New key</h2><p class="mut sm">' + esc(r.message) + ' Copy it now.</p><div class="card" id="nk" style="word-break:break-all;font-family:ui-monospace,monospace;font-size:17px;text-align:center">' + esc(r.key) + '</div><div class="btns"><button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText($(\'#nk\').textContent);toast(\'Copied\')">Copy</button><button class="btn ghost" onclick="closeSheet()">Done</button></div>'); }).catch(function (e) { toast(e.message); busy(b, false); }); }
 
@@ -1291,7 +1307,7 @@ function drawWatch(d) {
     var zb = w.zone === 'IN ZONE' ? 'OK' : w.zone === 'BELOW ZONE' ? 'WARN' : w.zone === 'NEAR' ? 'WARN' : '', zt = w.zone === 'IN ZONE' ? 'IN ZONE' : w.zone === 'BELOW ZONE' ? 'BELOW ZONE' : (w.distPct !== null ? pcp(Math.abs(w.distPct)) + ' above zone' : (w.price === null ? 'NO PRICE YET' : 'NO ZONE SET'));
     var zone = (w.low && w.high) ? num(w.low, 2) + ' – ' + num(w.high, 2) : (w.high ? 'up to ' + num(w.high, 2) : 'not set');
     var wk = (w.week52Low && w.week52High) ? '52 weeks ' + num(w.week52Low, 2) + ' – ' + num(w.week52High, 2) : '';
-    h += '<div class="card' + (w.zone === 'IN ZONE' ? ' alert INFO' : '') + '"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div style="min-width:0"><div><b>' + esc(w.asset) + '</b> <span class="badge ' + zb + '">' + esc(zt) + '</span>' + (w.priority ? ' <span class="badge">' + esc(w.priority) + '</span>' : '') + (w.onWheel ? ' <span class="badge MANUAL">wheel</span>' : '') + '</div>'
+    h += '<div class="card' + (w.zone === 'IN ZONE' ? ' alert INFO' : '') + '"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div style="min-width:0"><div><b>' + esc(w.asset) + '</b> <span class="badge ' + zb + '">' + esc(zt) + '</span>' + (w.held ? ' <span class="badge MANUAL">held · add more</span>' : '') + (w.priority ? ' <span class="badge">' + esc(w.priority) + '</span>' : '') + (w.onWheel ? ' <span class="badge MANUAL">wheel</span>' : '') + '</div>'
       + '<div class="tiny" style="margin-top:3px">' + [esc(w.name || ''), esc(w.sector || '')].filter(Boolean).join(' · ') + '</div></div><div class="r" style="text-align:right"><div class="num" style="font-weight:700">' + (w.price === null ? 'no price yet' : num(w.price, 2)) + '</div>' + (w.priceStale && w.price !== null ? '<div class="tiny neg">old price</div>' : '<div class="tiny">' + esc(w.ccy || '') + '</div>') + '</div></div>'
       + kv('Entry zone', zone) + (wk ? kv('Range', wk) : '') + (w.upsidePct !== null ? kv('Analyst target', num(w.target, 0) + ' <span class="tiny">(' + pc(w.upsidePct, 0) + ')</span>') : '') + (w.conviction !== null ? kv('Conviction', w.conviction + ' / 10') : '')
       + (w.notes ? '<div class="tiny" style="margin-top:6px">' + esc(w.notes) + '</div>' : '')
@@ -1317,6 +1333,26 @@ function wlEdit(id) {
 function wlSave(id) { var b = $('#wlb'); busy(b, true); api('watch_save', { asset: id, low: $('#wll').value, high: $('#wlh').value, priority: $('#wlp').value, notes: $('#wln').value }).then(function (r) { closeSheet(); wlDone(r); }).catch(function (e) { busy(b, false); toast(e.message); }); }
 function wlRemove(id) { api('watch_remove', { asset: id }).then(function (r) { closeSheet(); wlDone(r); }).catch(function (e) { toast(e.message); }); }
 function wlWheel(id, on, btn) { busy(btn, true); api(on ? 'wheel_add' : 'wheel_remove', { asset: id }).then(wlDone).catch(function (e) { busy(btn, false); toast(e.message); }); }
+
+/* ---------- Cash: balance per account and the latest cash movements ---------- */
+var CSH = { d: null };
+SCREENS.cash = function () {
+  setTop('Cash', 'Balances and movements', true, can('trade_entry') ? '<button class="iconbtn" onclick="addEntry({type:\'DEPOSIT\'})" aria-label="Add entry">' + ico('plus') + '</button>' : '');
+  load('cash', {}, function (d) { CSH.d = d; drawCash(d); }, S.force); S.force = false;
+};
+function drawCash(d) {
+  var h = '<div class="card"><div class="lbl tiny" style="text-transform:uppercase;font-weight:600;letter-spacing:.07em">Cash in all accounts</div><div class="num" style="font-size:30px;font-weight:700;margin:2px 0 6px">' + usd(d.totalUsd) + '</div>';
+  d.accounts.forEach(function (a) {
+    h += '<div class="row"><div class="grow"><div class="t">' + esc(a.broker) + ' <span class="tiny">' + esc(a.acct) + '</span></div><div class="s" style="white-space:normal">' + (a.currency !== 'USD' && a.cashLocal !== null ? mny(a.cashLocal, a.currency) + ' · ' : '') + (a.committedUsd ? 'tied up in open puts ' + usd(a.committedUsd) + ' · ' : '') + 'invested ' + usd(a.investedUsd) + '</div></div><div class="r"><b>' + usd(a.cashUsd) + '</b></div></div>';
+  });
+  if (!d.accounts.length) h += '<div class="empty">No cash balances.</div>';
+  h += (can('trade_entry') ? '<div class="btns"><button class="btn ghost sm" onclick="addEntry({type:\'DEPOSIT\'})">+ Deposit</button><button class="btn ghost sm" onclick="addEntry({type:\'TRANSFER\'})">+ Transfer</button><button class="btn ghost sm" onclick="addEntry({type:\'WITHDRAWAL\'})">+ Withdrawal</button></div>' : '') + '</div>';
+  h += '<div class="card" style="padding:4px 16px"><h3 style="margin-top:12px">Latest movements</h3>' + (d.movements.map(function (m) {
+    var label = m.type === 'TRADE' || m.type === 'OPTION' ? (m.action + ' ' + m.asset) : (m.type.charAt(0) + m.type.slice(1).toLowerCase() + (m.asset ? ' ' + m.asset : ''));
+    return '<div class="row ' + (m.amount > 0 ? 'up' : 'dn') + '"><div class="grow"><div class="t">' + esc(label) + '</div><div class="s" style="white-space:normal">' + dshort(m.date) + ' · ' + esc(m.acct) + (m.note ? ' · ' + esc(m.note) : '') + '</div></div><div class="r"><div class="t ' + cls(m.amount) + '">' + arw(m.amount) + mnyS(m.amount, m.ccy) + '</div></div></div>';
+  }).join('') || '<div class="empty">No movements yet</div>') + '</div><div class="note">Movements show the amount in the account\'s own currency, before fees. The balance above is the full truth.</div>';
+  $('#main').innerHTML = h;
+}
 
 /* ---------- filters for the reporting screens: Transactions, Income and Reports ----------
    Several values per group (for example brokers IBKR and Wio), a date range, and the same choice follows you between these three screens. */
@@ -1362,6 +1398,156 @@ function repFilter() {
   if (REP.rowsKind === k && REP.rows) { el.innerHTML = '<h3>Include only</h3>' + tfBar(k, function () { return REP.rows; }, 'repFilter') + '<div class="note">The download follows these choices.</div>'; return; }
   el.innerHTML = '<h3>Include only</h3><div class="tiny">Loading…</div>';
   load(k, {}, function (d) { REP.rows = d.rows || []; REP.rowsKind = k; repFilter(); }, false, true);
+}
+
+
+/* ---------- Add entry: every kind of ledger entry in one place, opened from More or from a "+" in each section ---------- */
+var AE = { meta: null, type: 'DEPOSIT', pre: {} };
+var AE_TYPES = [['BUY', 'Buy'], ['SELL', 'Sell'], ['DEPOSIT', 'Deposit'], ['WITHDRAWAL', 'Withdrawal'], ['TRANSFER', 'Transfer'], ['DIVIDEND', 'Dividend'], ['INTEREST', 'Interest'], ['FEE', 'Fee'], ['OPTION', 'Option']];
+function addEntry(pre) {
+  AE.pre = pre || {}; AE.type = (pre && pre.type) || 'DEPOSIT';
+  if (AE.type === 'BUY' || AE.type === 'SELL') { AE.pre.action = AE.type; }
+  sheet('<h2>Add entry</h2><p class="mut sm">Loading…</p>');
+  (AE.meta ? Promise.resolve(AE.meta) : api('entry_meta')).then(function (m) { AE.meta = m; aeDraw(); }).catch(function (e) { closeSheet(); toast(e.message); });
+}
+function aeType(t) { AE.type = t; AE.pre = { type: t }; aeDraw(); }
+function aeAcc(id) { return (AE.meta.accounts.filter(function (a) { return a.id === id; })[0]) || AE.meta.accounts[0]; }
+function aeAccSel(id, sel, change) { return '<select id="' + id + '" onchange="' + (change || 'aeEffect()') + '">' + AE.meta.accounts.map(function (a) { return '<option value="' + esc(a.id) + '"' + (a.id === sel ? ' selected' : '') + '>' + esc(a.broker + ' · ' + a.id + ' (' + a.ccy + ')') + '</option>'; }).join('') + '</select>'; }
+function aeDefaultAcct() {
+  if (AE.pre.acct) return AE.pre.acct;
+  var ib = AE.meta.accounts.filter(function (a) { return /IBKR/i.test(a.id + a.broker); })[0]; return (ib || AE.meta.accounts[0] || {}).id;
+}
+function aeSleeveSel(acctId) {
+  var def = (aeAcc(acctId) || {}).sleeve || 'OWNER';
+  return '<label class="field"><span>For (whose money this is)</span><select id="aes">' + AE.meta.sleeves.map(function (s) { return '<option' + (s === def ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select></label>';
+}
+function aeDraw() {
+  var t = AE.type, pre = AE.pre, today = new Date().toISOString().slice(0, 10), acct = aeDefaultAcct(), f = function (id, lab, attrs) { return '<label class="field"><span>' + lab + '</span><input id="' + id + '" ' + (attrs || '') + '></label>'; };
+  var chips = '<div class="chips" style="flex-wrap:wrap">' + AE_TYPES.map(function (x) { return '<button class="chip ' + (t === x[0] ? 'on' : '') + '" onclick="aeType(\'' + x[0] + '\')">' + x[1] + '</button>'; }).join('') + '</div>';
+  var body = '';
+  if (t === 'BUY' || t === 'SELL' || t === 'OPTION') {
+    sheet('<h2>Add entry</h2>' + chips + '<p class="mut sm">Opening the ' + (t === 'OPTION' ? 'option' : 'trade') + ' form…</p>');
+    setTimeout(function () { if (t === 'OPTION') optEvent('STO', '', pre); else addTx(pre); }, 50); return;
+  }
+  if (t === 'TRANSFER') {
+    var to = (AE.meta.accounts.filter(function (a) { return a.id !== acct; })[0] || {}).id;
+    body = '<label class="field"><span>From account</span>' + aeAccSel('aef', pre.from || (/WIO/i.test(acct) ? acct : (AE.meta.accounts.filter(function (a) { return /WIO/i.test(a.id); })[0] || {}).id || acct)) + '</label><label class="field"><span>To account</span>' + aeAccSel('aet', pre.to || acct) + '</label>'
+      + '<div class="grid2">' + f('aea', 'Amount sent', 'type="number" step="any" inputmode="decimal" oninput="aeEffect()"') + '<div id="aeinw">' + f('aei', 'Amount received', 'type="number" step="any" inputmode="decimal" oninput="aeEffect()"') + '</div>' + f('aed', 'Date it left', 'type="date" value="' + today + '"') + f('aedi', 'Date it arrived (if later)', 'type="date"') + f('aefee', 'Fee (optional)', 'type="number" step="any" inputmode="decimal"') + '</div>'
+      + '<div class="tiny">Between two cash-keeping accounts this is saved as a withdrawal plus a deposit, linked together, and does not count as new money in. A direct account (Wio) keeps no cash, so only the other side is recorded.</div>';
+  } else {
+    body = '<label class="field"><span>Account</span>' + aeAccSel('aeac', acct, 'aeAcctChange()') + '</label>';
+    if (t === 'DIVIDEND') body += '<label class="field"><span>Stock</span><select id="aeas">' + AE.meta.assets.filter(function (a) { return a.held; }).map(function (a) { return '<option value="' + esc(a.id) + '"' + (a.id === pre.asset ? ' selected' : '') + '>' + esc(a.id + ' · ' + a.name) + '</option>'; }).join('') + '</select></label>';
+    body += '<div class="grid2">' + f('aea', t === 'DIVIDEND' ? 'Gross amount' : 'Amount', 'type="number" step="any" inputmode="decimal" oninput="aeEffect()"') + f('aed', 'Date', 'type="date" value="' + today + '"');
+    if (t === 'DIVIDEND') body += f('aetax', 'Tax withheld', 'type="number" step="any" inputmode="decimal"') + f('aeq', 'Shares (optional)', 'type="number" step="any" inputmode="decimal"');
+    if (t === 'DEPOSIT' || t === 'WITHDRAWAL') body += f('aefee', 'Fee (optional)', 'type="number" step="any" inputmode="decimal"');
+    body += '</div>' + aeSleeveSel(acct);
+  }
+  body += f('aen', 'Note (optional)', 'maxlength="200"') + '<div class="tiny" id="aeeff" style="margin:4px 0 8px"></div><div class="err" id="aeerr"></div>'
+    + '<div class="btns"><button class="btn" id="aeb" onclick="aeSave(false)">Save</button><button class="btn ghost" onclick="aeSave(true)">Save and add another</button></div>';
+  sheet('<h2>Add entry</h2>' + chips + body);
+  if (t === 'TRANSFER') aeXfer();
+  if (t === 'TRANSFER') { $('#aef').onchange = aeXfer; $('#aet').onchange = aeXfer; }
+}
+function aeAcctChange() { var s = $('#aes'); if (s) { var a = aeAcc($('#aeac').value); if (a) s.value = a.sleeve || 'OWNER'; } aeEffect(); }
+function aeXfer() {
+  var f = aeAcc($('#aef').value), t = aeAcc($('#aet').value), same = f && t && f.ccy === t.ccy;
+  $('#aeinw').style.display = same ? 'none' : '';
+  $('#aei').previousElementSibling.textContent = 'Amount received (' + (t ? t.ccy : '') + ')'; $('#aea').previousElementSibling.textContent = 'Amount sent (' + (f ? f.ccy : '') + ')';
+  aeEffect();
+}
+function aeEffect() {
+  var t = AE.type, el = $('#aeeff'); if (!el) return; var a = +($('#aea') || {}).value || 0, s = '';
+  if (t === 'TRANSFER') {
+    var f = aeAcc($('#aef').value), to = aeAcc($('#aet').value), inn = f && to && f.ccy === to.ccy ? a : (+($('#aei') || {}).value || 0);
+    if (f && to && f.direct && to.direct) s = 'Both are direct accounts (no cash kept): nothing can be recorded.';
+    else if (f && f.direct) s = 'Wio-type accounts keep no cash, so this is saved as ONE deposit of ' + num(inn || a, 2) + ' ' + to.ccy + ' on ' + to.id;
+    else if (to && to.direct) s = 'Saved as ONE withdrawal of ' + num(a, 2) + ' ' + f.ccy + ' on ' + f.id + ' (' + to.id + ' keeps no cash)';
+    else if (a) s = f.id + ' cash −' + num(a, 2) + ' ' + f.ccy + '  ·  ' + to.id + ' cash +' + num(inn, 2) + ' ' + to.ccy;
+  } else {
+    var ac = aeAcc($('#aeac') && $('#aeac').value), sign = (t === 'WITHDRAWAL' || t === 'FEE') ? '−' : '+';
+    if (ac && ac.direct && (t === 'DEPOSIT' || t === 'WITHDRAWAL' || t === 'FEE')) s = ac.id + ' is a direct account: no cash is kept there, so this is not recorded. Money in and out comes from each buy and sell. To fund IBKR from the bank, add a Deposit on IBKR-01.';
+    else if (a && ac) s = ac.id + ' cash ' + sign + num(a, 2) + ' ' + ac.ccy;
+  }
+  el.textContent = s ? (/direct|Both|keeps no cash|ONE/.test(s) ? s : 'Effect: ' + s) : '';
+}
+function aeSave(again) {
+  var t = AE.type, p = { type: t, date: $('#aed').value, note: $('#aen').value }, b = $('#aeb'); $('#aeerr').textContent = '';
+  if (t === 'TRANSFER') { p.from = $('#aef').value; p.to = $('#aet').value; p.amountOut = $('#aea').value; p.amountIn = $('#aeinw').style.display === 'none' ? '' : $('#aei').value; p.dateIn = $('#aedi').value; p.fees = $('#aefee').value; }
+  else { p.account_id = $('#aeac').value; p.amount = $('#aea').value; p.sleeve = $('#aes').value; if (t === 'DIVIDEND') { p.asset_id = $('#aeas').value; p.tax = $('#aetax').value; p.quantity = $('#aeq').value; } if ($('#aefee')) p.fees = $('#aefee').value; }
+  var run = function (confirmDup) { if (confirmDup) p.confirmDup = true; busy(b, true); api('entry_create', p).then(function (r) { toast(r.message); clearCache(); AE.meta = null; if (again) { addEntry({ type: t, acct: p.account_id, from: p.from, to: p.to }); } else { closeSheet(); S.force = true; if (S.stack.length && S.stack[S.stack.length - 1].name === 'cash') SCREENS.cash(); else if (S.tab === 'home' || S.tab === 'holdings') go2(S.tab); } }).catch(function (e) { busy(b, false); if (/Possible duplicate/.test(e.message)) { if (confirm(e.message)) run(true); } else $('#aeerr').textContent = e.message; }); };
+  run(false);
+}
+function go2(tab) { go(tab); }
+
+
+/* ---------- Home graph: compare with market indexes, and show only some accounts ---------- */
+var BC = ['#5aa9ff', '#ffb454', '#c792ea', '#ff7aa8'];
+HOME.cmp = (function () { try { return JSON.parse(LS.get('pv8cmp') || '[]'); } catch (e) { return []; } })();
+HOME.accts = (function () { try { var v = JSON.parse(LS.get('pv8accts') || 'null'); return v && v.length ? v : null; } catch (e) { return null; } })();
+S.bench = null; S.benchCat = null; S.navacct = null; S.benchTried = {}; S.navTried = false;
+function hSave() { try { LS.set('pv8cmp', JSON.stringify(HOME.cmp)); LS.set('pv8accts', JSON.stringify(HOME.accts)); } catch (e) {} }
+function hLoadBench(done) {
+  if (!isAll()) return;
+  var need = HOME.cmp.filter(function (s) { return !(S.bench && S.bench.series && S.bench.series[s]) && !S.benchTried[s]; });
+  if (need.length || !S.benchCat) api('bench', { symbols: HOME.cmp }).then(function (b) { HOME.cmp.forEach(function (s) { S.benchTried[s] = true; }); S.benchCat = b.catalog; S.bench = { series: Object.assign({}, S.bench ? S.bench.series : {}, b.series), updated: b.updated }; if (done) done(); }).catch(function (e) { toast(e.message); });
+  else if (done) done();
+}
+function hLoadNav(done) { if (S.navacct || S.navTried) return done && done(); S.navTried = true; api('navacct').then(function (n) { S.navacct = n; if (done) done(); }).catch(function (e) { toast(e.message); }); }
+function homeCmpBar() {
+  var n = HOME.cmp.length, fa = HOME.accts ? HOME.accts.length : 0;
+  return '<div class="chips" style="margin:0 0 8px"><button class="chip ' + (n ? 'on' : '') + '" onclick="cmpSheet()">⇄ Compare' + (n ? ' · ' + n : '') + '</button><button class="chip ' + (fa ? 'on' : '') + '" onclick="acctSheet()">Accounts' + (fa ? ' · ' + fa : '') + '</button>' + ((n || fa) ? '<button class="chip" onclick="HOME.cmp=[];HOME.accts=null;hSave();drawHome(S.ov)">Clear</button>' : '') + '</div>';
+}
+/* the return line of the selected accounts, from their daily values and the money moved in and out of them (approximate; the all-accounts line uses your exact time-weighted figures) */
+function acctIndex(o) {
+  var n = S.navacct, sel = {}; HOME.accts.forEach(function (a) { sel[a] = 1; });
+  var fl = {}; (o.flows || []).forEach(function (f) { if (f[3] && sel[f[3]]) fl[f[0]] = (fl[f[0]] || 0) - f[1]; });
+  var idx = 1, out = [], prev = null;
+  n.dates.forEach(function (d, i) {
+    var v = 0; HOME.accts.forEach(function (a) { if (n.values[a]) v += n.values[a][i] || 0; });
+    if (prev !== null && prev > 0) idx *= (v - (fl[d] || 0)) / prev; prev = v; out.push([d, idx]);
+  });
+  return out;
+}
+function homeReturn(o, sub, from) {
+  var port, label = 'Return since ' + dshort(from) + ' (time-weighted, deposits removed)';
+  if (HOME.accts && S.navacct) { var ai = acctIndex(o).filter(function (r) { return r[0] >= from; }); var a0 = ai.length ? ai[0][1] : 1; port = ai.map(function (r) { return [r[0], (r[1] / a0 - 1) * 100]; }); label = 'Selected accounts (' + HOME.accts.join(', ') + ')'; }
+  else { var b0 = sub.length ? sub[0][2] : 1; port = sub.map(function (r) { return [r[0], (r[2] / b0 - 1) * 100]; }); }
+  if (!port.length) port = sub.map(function (r) { return [r[0], 0]; });
+  var lines = [{ pts: port, color: 'var(--acc)', fill: !HOME.cmp.length }], leg = ['<span><i style="background:var(--acc)"></i>' + (HOME.accts ? 'Your accounts' : 'You') + '</span>'], rows = [[HOME.accts ? 'Your accounts' : 'You', port.length ? port[port.length - 1][1] : null, null]], last = port.length ? port[port.length - 1][0] : from;
+  HOME.cmp.forEach(function (sym, k) {
+    var s = S.bench && S.bench.series[sym]; if (!s) return; var pts = s.filter(function (r) { return r[0] >= from && r[0] <= last; }); if (pts.length < 2) return;
+    var base = pts[0][1], name = ((S.benchCat || []).filter(function (c) { return c.sym === sym; })[0] || { name: sym }).name, col = BC[k % BC.length];
+    lines.push({ pts: pts.map(function (r) { return [r[0], (r[1] / base - 1) * 100]; }), color: col, w: 1.6 }); leg.push('<span><i style="background:' + col + '"></i>' + esc(name) + '</span>');
+    rows.push([name, (pts[pts.length - 1][1] / base - 1) * 100, col]);
+  });
+  var h = lineChart('c1', lines, { fmt: function (v) { return pc(v, 1); } }) + '<div class="legend">' + leg.join('') + '</div>';
+  if (rows.length > 1) { var me = rows[0][1]; h += '<div style="margin-top:8px">' + rows.map(function (r, i) { return '<div class="kv"><span>' + (r[2] ? '<i style="display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle;background:' + r[2] + '"></i>' : '') + esc(r[0]) + '</span><span class="num ' + cls(r[1]) + '">' + arw(r[1]) + pc(r[1], 1) + (i && me !== null && r[1] !== null ? ' <span class="tiny">you ' + (me - r[1] >= 0 ? 'ahead by ' : 'behind by ') + pcp(Math.abs(me - r[1])) + '</span>' : '') + '</span></div>'; }).join('') + '</div><div class="tiny" style="margin-top:6px">Index lines are each index\'s own price (rupee and dirham indexes in their own currency), from ' + dshort(from) + '. Updated ' + dshort((S.bench || {}).updated) + '.</div>'; }
+  else if (!HOME.accts) h = h.replace('</div>', '</div>');
+  return h + (HOME.accts ? '<div class="tiny">' + esc(label) + '. Worked out from each account\'s daily value and its deposits and withdrawals, so small differences from the exact figure are normal.</div>' : '');
+}
+function cmpSheet() {
+  hLoadBench(function () {
+    var groups = {}; (S.benchCat || []).forEach(function (c) { (groups[c.group] = groups[c.group] || []).push(c); });
+    sheet('<h2>Compare with</h2><p class="mut sm">Tick up to four. Lines start at 0% at the beginning of the period you chose.</p>' + Object.keys(groups).map(function (g) { return '<div class="tiny" style="font-weight:700;margin:10px 0 2px;text-transform:uppercase;letter-spacing:.05em">' + esc(g) + '</div>' + groups[g].map(function (c) { return '<label style="display:flex;gap:12px;align-items:center;padding:7px 0;font-size:16px;' + (c.missing ? 'opacity:.45' : '') + '"><input type="checkbox" class="cmpk" style="width:22px;height:22px;flex:none;margin:0" value="' + esc(c.sym) + '"' + (HOME.cmp.indexOf(c.sym) >= 0 ? ' checked' : '') + (c.missing ? ' disabled' : '') + ' onchange="cmpLimit(this)"><span>' + esc(c.name) + (c.missing ? ' <span class="tiny">(no data yet)</span>' : '') + '</span></label>'; }).join(''); }).join('') + '<div class="btns"><button class="btn" onclick="cmpApply()">Show on the graph</button></div>');
+  });
+}
+function cmpLimit(el) { var n = document.querySelectorAll('.cmpk:checked').length; if (n > 4) { el.checked = false; toast('Up to four at a time keeps the graph readable.'); } }
+function cmpApply() {
+  HOME.cmp = [].filter.call(document.querySelectorAll('.cmpk'), function (c) { return c.checked; }).map(function (c) { return c.value; }); hSave(); closeSheet();
+  if (HOME.cmp.length) HOME.view = 'return';
+  hLoadBench(function () { drawHome(S.ov); });
+}
+function acctSheet() {
+  hLoadNav(function () {
+    var ac = S.navacct.accounts, regions = {}; ac.forEach(function (a) { if (a.region) (regions[a.region] = regions[a.region] || []).push(a.acct); });
+    sheet('<h2>Which accounts</h2><p class="mut sm">Your line on the graph covers only the accounts you tick. Leave all ticked for the whole portfolio.</p><div class="chips" style="flex-wrap:wrap">' + Object.keys(regions).map(function (r) { return '<button class="chip" onclick="acctQuick(\'' + esc(r) + '\')">' + esc(r) + ' only</button>'; }).join('') + '<button class="chip" onclick="acctQuick(\'\')">All</button></div>' + ac.map(function (a) { return '<label style="display:flex;gap:12px;align-items:center;padding:7px 0;font-size:16px"><input type="checkbox" class="acck" data-r="' + esc(a.region) + '" style="width:22px;height:22px;flex:none;margin:0" value="' + esc(a.acct) + '"' + (!HOME.accts || HOME.accts.indexOf(a.acct) >= 0 ? ' checked' : '') + '><span>' + esc(a.broker) + ' · ' + esc(a.acct) + ' <span class="tiny">' + esc(a.region) + '</span></span></label>'; }).join('') + '<div class="btns"><button class="btn" onclick="acctApply()">Show on the graph</button></div>');
+  });
+}
+function acctQuick(r) { [].forEach.call(document.querySelectorAll('.acck'), function (c) { c.checked = !r || c.getAttribute('data-r') === r; }); }
+function acctApply() {
+  var on = [].filter.call(document.querySelectorAll('.acck'), function (c) { return c.checked; }).map(function (c) { return c.value; }), all = document.querySelectorAll('.acck').length;
+  if (!on.length) { toast('Tick at least one account.'); return; }
+  HOME.accts = on.length === all ? null : on; hSave(); closeSheet(); if (HOME.accts) HOME.view = 'return'; drawHome(S.ov);
 }
 
 </script>
