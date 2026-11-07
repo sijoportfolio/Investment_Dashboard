@@ -460,7 +460,7 @@ function drawHome(o, meta) {
   if (dy) {
     var dn = function (t) { try { return new Date(t).toLocaleDateString([], { weekday: 'short' }); } catch (e) { return ''; } };
     var opens = dy.groups.filter(function (x) { return x.open && !x.crypto; }).map(function (x) { return x.region; }), exts = dy.groups.filter(function (x) { return x.ext && !x.crypto; }).map(function (x) { return x.region + (x.ext === 'PRE' ? ' pre-market' : ' after hours') + (x.ext === 'PRE' && x.opens ? ' (opens ' + hm(x.opens) + ')' : ''); }), shut = dy.groups.filter(function (x) { return !((x.open || x.ext) && !x.crypto) && (!dy.open || !x.crypto); });
-    h += '<div class="num ' + cls(dy.headUsd) + '" style="font-weight:600;margin-top:2px">' + usdS(dy.headUsd) + ' (' + pc(dy.headPct, 2) + ') <span class="mut sm" style="font-weight:500">' + (dy.open ? 'today · ' + esc(opens.concat(exts).join(', ')) + (opens.length ? ' open now' : '') : 'markets closed · last session') + '</span></div>';
+    h += '<div class="num ' + cls(dy.headUsd) + '" style="font-weight:600;margin-top:2px">' + usdS(dy.headUsd) + ' (' + pc(dy.headPct, 2) + ') <span class="mut sm" style="font-weight:500">' + (dy.open ? 'today · ' + esc(opens.map(function (r) { return r + ' open'; }).concat(exts).join(' · ')) : 'markets closed · last session') + '</span></div>';
     if (dy.open && shut.length) h += '<div class="tiny" style="margin-top:2px">Closed, last session: ' + shut.map(function (x) { return esc(x.region) + ' ' + usdS(x.usd) + ' (' + pc(x.pct, 2) + ')' + (x.t ? ' ' + dn(x.t) : ''); }).join(' · ') + ' · all together ' + usdS(dy.usd) + '</div>';
     else if (!dy.open && dy.groups.length > 1) h += '<div class="tiny" style="margin-top:2px">' + dy.groups.map(function (x) { return esc(x.region) + ' ' + usdS(x.usd) + (x.t ? ' ' + dn(x.t) : ''); }).join(' · ') + '</div>';
   }
@@ -809,10 +809,12 @@ function stressTab(d) {
 SCREENS.more = function () {
   setTop('More', '', false, '');
   var full = isAll(), it = function (ic, t, s, fn, show) { return show === false ? '' : '<div class="row tap" onclick="' + fn + '"><div class="avatar" style="font-size:18px">' + ic + '</div><div class="grow"><div class="t">' + t + '</div><div class="s">' + s + '</div></div><span class="mut">›</span></div>'; };
-  $('#main').innerHTML = '<div class="card" style="padding:4px 16px">' + it('➕', 'Add entry', 'Buy, sell, deposit, withdrawal, transfer, dividend, interest, fee, option', 'addEntry()', can('trade_entry')) + it('💰', 'Cash', 'Balance per account and latest movements', "push('cash')") + it('↔️', 'Transactions', 'Every ledger entry', "push('tx')", scr('transactions')) + it('💵', 'Income', 'Dividends and interest', "push('income')", scr('income')) + it('🎯', 'Plan & risk', 'Goal, risk, stress tests', "go('plan')", full && scr('plan')) + it('🧾', 'Tax', 'Gains, estimate, harvesting, estate', "push('tax')", full && scr('plan')) + it('📈', 'Options', 'What to do with each open option', "push('options')", full && scr('options')) + '</div>'
-    + '<div class="card" style="padding:4px 16px">' + it('🏷️', 'Prices', 'Health of every price, enter one by hand', "push('prices')", can('prices')) + it('✅', 'Trade check', 'Ledger vs market data', "push('review')", can('review')) + it('📄', 'Reports', 'PDF or Excel for any view', "push('reports')", scr('reports')) + '</div>'
+  var html = '<div class="card" style="padding:4px 16px">' + it('➕', 'Add entry', 'Buy, sell, deposit, withdrawal, transfer, dividend, interest, fee, option', 'addEntry()', can('trade_entry')) + it('💰', 'Cash', 'Balance per account and latest movements', "push('cash')", scr('holdings')) + it('↔️', 'Transactions', 'Every ledger entry', "push('tx')", scr('transactions')) + it('💵', 'Income', 'Dividends and interest', "push('income')", scr('income')) + it('🎯', 'Plan & risk', 'Goal, risk, stress tests', "go('plan')", full && scr('plan')) + it('🧾', 'Tax', 'Gains, estimate, harvesting, estate', "push('tax')", full && scr('plan')) + it('📈', 'Options', 'What to do with each open option', "push('options')", full && scr('options')) + '</div>'
+    + '<div class="card" style="padding:4px 16px">' + it('🏷️', 'Prices', 'Health of every price, enter one by hand', "push('prices')", can('prices')) + it('✅', 'Trade check', 'Ledger vs market data', "push('review')", can('review')) + it('👪', 'People & shares', 'Children\'s accounts and shares of your holdings', "push('people')", full && can('settings')) + it('📄', 'Reports', 'PDF or Excel for any view', "push('reports')", scr('reports')) + '</div>'
     + '<div class="card" style="padding:4px 16px">' + it('⚙️', 'Settings', 'Limits, targets, tax rules, sleeves', "push('settings')", can('settings')) + it('🔑', 'Access keys', 'Who can open this app', "push('keys')", can('keys')) + it('🛠️', 'Owner tools', 'Refresh now, rebuild history', "push('tools')", can('owner_jobs')) + it('👤', 'This device', 'Face ID or fingerprint, your key, theme', "push('account')") + '</div>'
     + '<div class="note" style="text-align:center">Portfolio v8 · data as of ' + (S.ov ? dshort(S.ov.asOf) : '') + '</div>';
+  html = html.replace(/<div class="card" style="padding:4px 16px"><\/div>/g, '');
+  $('#main').innerHTML = html;
 };
 var TXQ = { q: '', n: 60, sort: 'date', dir: -1 };
 var TSORT = { date: function (r) { return r.date + r.id; }, asset: function (r) { return r.asset || r.type || ''; }, amount: function (r) { return r.gross; }, acct: function (r) { return r.acct + r.date; }, action: function (r) { return r.action || r.type || ''; } };
@@ -998,11 +1000,12 @@ function keyScrSet(role) { var on = role === 'ADMIN'; [].forEach.call(document.q
 function newKey(id) {
   var k = id ? S.keysData.rows.filter(function (x) { return x.id === id; })[0] : { name: '', role: 'VIEWER', accounts: 'ALL', permissions: '', note: '', screens: 'none' }, on = keyScr(k);
   sheet('<h2>' + (id ? 'Edit ' + esc(k.name) : 'New access key') + '</h2><label class="field"><span>Name</span><input id="kn" value="' + esc(k.name) + '"></label><label class="field"><span>Role</span><select id="kr" onchange="' + (id ? '' : 'keyScrSet(this.value)') + '">' + ['VIEWER', 'EDITOR', 'ADMIN'].map(function (r) { return '<option' + (k.role === r ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select></label><label class="field"><span>Accounts they can see (ALL, or ids separated by commas)</span><input id="ka" value="' + esc(k.accounts || 'ALL') + '"></label>'
+    + '<label class="field"><span>Person (only for a child\'s key: it then opens that person\'s own portfolio and nothing else)</span><input id="kpn" list="kpl" value="' + esc(k.person || '') + '" placeholder="leave empty for a normal key"><datalist id="kpl">' + ((PPL.d && PPL.d.people) || []).map(function (p) { return '<option>' + esc(p.person) + '</option>'; }).join('') + '</datalist></label>'
     + '<div style="margin:0 0 12px"><div class="tiny" style="font-weight:600;margin-bottom:4px">Screens they can open (Home and More are always there)' + (id ? '' : '. Ticked for an admin, empty for anyone else; change the role and the ticks follow') + '</div>' + KSCR.map(function (x) { return '<label style="display:flex;gap:12px;align-items:center;padding:7px 0;font-size:16px"><input type="checkbox" class="kscr" style="width:22px;height:22px;flex:none;margin:0" value="' + x[0] + '"' + (on.indexOf(x[0]) >= 0 ? ' checked' : '') + '><span style="color:var(--tx)">' + x[1] + '</span></label>'; }).join('') + '</div>'
     + '<label class="field"><span>Permissions (empty = the role\'s usual set)</span><input id="kp" placeholder="view,trade_entry,review,prices,owner_jobs,settings,keys" value="' + esc(k.permissions || '') + '"></label><div class="btns"><button class="btn" id="kb" onclick="saveKey(\'' + esc(id || '') + '\')">Save</button></div>');
 }
 function keyDetail(id) { var k = S.keysData.rows.filter(function (x) { return x.id === id; })[0]; sheet('<h2>' + esc(k.name) + '</h2><div class="mut sm">' + esc(k.id) + ' · ' + esc(k.role) + ' · ' + esc(k.status) + '</div><div class="btns"><button class="btn ghost" onclick="newKey(\'' + id + '\')">Edit</button>' + (k.status === 'ACTIVE' ? '<button class="btn danger" onclick="revokeKey(\'' + id + '\')">Revoke</button>' : '') + '</div>'); }
-function saveKey(id) { var b = $('#kb'); busy(b, true); api('keys_save', { id: id || undefined, name: $('#kn').value, role: $('#kr').value, accounts: $('#ka').value, permissions: $('#kp').value, screens: [].filter.call(document.querySelectorAll('.kscr'), function (c) { return c.checked; }).map(function (c) { return c.value; }) }).then(function (r) { if (r.key) sheet('<h2>Key created</h2><p class="mut sm">' + esc(r.message) + '</p><div class="card" style="word-break:break-all;font-family:ui-monospace,monospace;font-size:17px;text-align:center" id="kk">' + esc(r.key) + '</div><div class="btns"><button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText($(\'#kk\').textContent);toast(\'Copied\')">Copy</button><button class="btn ghost" onclick="closeSheet();SCREENS.keys()">Done</button></div>'); else { closeSheet(); toast(r.message); SCREENS.keys(); } }).catch(function (e) { toast(e.message); busy(b, false); }); }
+function saveKey(id) { var b = $('#kb'); busy(b, true); api('keys_save', { id: id || undefined, name: $('#kn').value, role: $('#kr').value, accounts: $('#ka').value, permissions: $('#kp').value, person: $('#kpn').value, screens: [].filter.call(document.querySelectorAll('.kscr'), function (c) { return c.checked; }).map(function (c) { return c.value; }) }).then(function (r) { if (r.key) sheet('<h2>Key created</h2><p class="mut sm">' + esc(r.message) + '</p><div class="card" style="word-break:break-all;font-family:ui-monospace,monospace;font-size:17px;text-align:center" id="kk">' + esc(r.key) + '</div><div class="btns"><button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText($(\'#kk\').textContent);toast(\'Copied\')">Copy</button><button class="btn ghost" onclick="closeSheet();SCREENS.keys()">Done</button></div>'); else { closeSheet(); toast(r.message); SCREENS.keys(); } }).catch(function (e) { toast(e.message); busy(b, false); }); }
 function revokeKey(id) { api('keys_revoke', { id: id }).then(function (r) { closeSheet(); toast(r.message); SCREENS.keys(); }).catch(function (e) { toast(e.message); }); }
 
 /* ---------- Owner tools and this device ---------- */
@@ -1072,9 +1075,9 @@ function showKey(msg) {
 }
 function submitKey() {
   var k = $('#ki').value.trim(); if (!k) return; var b = $('#kbtn'); busy(b, true); S.key = k;
-  api('login').then(function (w) { LS.set('pv8key', k); S.who = { name: w.name, role: w.role, perms: w.perms, scope: w.scope, keyEdit: w.keyEdit }; unlockScreen(); start(true); }).catch(function (e) { S.key = ''; busy(b, false); $('#ke').textContent = e.code === 'LOCKED' ? e.message : (e.message === 'Failed to fetch' ? 'Cannot reach the app. Check the connection and the address.' : e.message); });
+  api('login').then(function (w) { LS.set('pv8key', k); S.who = w; unlockScreen(); start(true); }).catch(function (e) { S.key = ''; busy(b, false); $('#ke').textContent = e.code === 'LOCKED' ? e.message : (e.message === 'Failed to fetch' ? 'Cannot reach the app. Check the connection and the address.' : e.message); });
 }
-function tryBio() { bioUnlock().then(function () { S.key = LS.get('pv8key'); return api('login'); }).then(function (w) { S.who = { name: w.name, role: w.role, perms: w.perms, scope: w.scope, keyEdit: w.keyEdit }; unlockScreen(); start(false); }).catch(function (e) { if (e && e.message) showKey(e.message); }); }
+function tryBio() { bioUnlock().then(function () { S.key = LS.get('pv8key'); return api('login'); }).then(function (w) { S.who = w; unlockScreen(); start(false); }).catch(function (e) { if (e && e.message) showKey(e.message); }); }
 function signOut(silent) { LS.del('pv8key'); LS.del('pv8bio'); clearCache(); S.key = ''; S.who = null; showKey(silent ? 'Signed out. Please sign in again.' : ''); }
 function start(first) {
   S.last = Date.now(); drawTabs(); go('home');
@@ -1086,7 +1089,7 @@ function boot() {
   if (!S.api) return showSetup();
   S.key = LS.get('pv8key') || ''; if (!S.key) return showKey();
   if (LS.get('pv8bio')) { showKey(); return tryBio(); }
-  api('login').then(function (w) { S.who = { name: w.name, role: w.role, perms: w.perms, scope: w.scope, keyEdit: w.keyEdit }; unlockScreen(); start(false); }).catch(function (e) { if (e.code === 'DENIED' || e.code === 'LOCKED') showKey(e.message); else { var c = cacheGet('overview'); if (c) { S.who = { name: 'Offline', role: 'VIEWER', perms: ['view'], scope: 'ALL' }; unlockScreen(); start(false); toast('Offline: showing saved data'); } else showKey('Cannot reach the app.'); } });
+  api('login').then(function (w) { S.who = w; unlockScreen(); start(false); }).catch(function (e) { if (e.code === 'DENIED' || e.code === 'LOCKED') showKey(e.message); else { var c = cacheGet('overview'); if (c) { S.who = { name: 'Offline', role: 'VIEWER', perms: ['view'], scope: 'ALL' }; unlockScreen(); start(false); toast('Offline: showing saved data'); } else showKey('Cannot reach the app.'); } });
 }
 document.addEventListener('visibilitychange', function () {
   if (document.hidden) { S.hiddenAt = Date.now(); return; }
@@ -1498,19 +1501,22 @@ function homeCmpBar() {
   return '<div class="chips" style="margin:0 0 8px"><button class="chip ' + (n ? 'on' : '') + '" onclick="cmpSheet()">⇄ Compare' + (n ? ' · ' + n : '') + '</button><button class="chip ' + (fa ? 'on' : '') + '" onclick="acctSheet()">Accounts' + (fa ? ' · ' + fa : '') + '</button>' + ((n || fa) ? '<button class="chip" onclick="HOME.cmp=[];HOME.accts=null;hSave();drawHome(S.ov)">Clear</button>' : '') + '</div>';
 }
 /* the return line of the selected accounts, from their daily values and the money moved in and out of them (approximate; the all-accounts line uses your exact time-weighted figures) */
+var ACCT_SKIP = 0;
 function acctIndex(o) {
   var n = S.navacct, sel = {}; HOME.accts.forEach(function (a) { sel[a] = 1; });
   var fl = {}; (o.flows || []).forEach(function (f) { if (f[3] && sel[f[3]]) fl[f[0]] = (fl[f[0]] || 0) - f[1]; });
-  var idx = 1, out = [], prev = null;
+  var idx = 1, out = [], prev = null; ACCT_SKIP = 0;
   n.dates.forEach(function (d, i) {
     var v = 0; HOME.accts.forEach(function (a) { if (n.values[a]) v += n.values[a][i] || 0; });
-    if (prev !== null && prev > 0) idx *= (v - (fl[d] || 0)) / prev; prev = v; out.push([d, idx]);
+    /* a day where the money moved does not match the change in value (a tiny starting balance, a transfer dated a day apart) would wreck the whole line, so such a day is left flat and counted */
+    if (prev !== null && prev > 50) { var r = (v - (fl[d] || 0)) / prev; if (r > 0.75 && r < 1.3333) idx *= r; else ACCT_SKIP++; }
+    prev = v; out.push([d, idx]);
   });
   return out;
 }
 function homeReturn(o, sub, from) {
   var port, label = 'Return since ' + dshort(from) + ' (time-weighted, deposits removed)';
-  if (HOME.accts && S.navacct) { var ai = acctIndex(o).filter(function (r) { return r[0] >= from; }); var a0 = ai.length ? ai[0][1] : 1; port = ai.map(function (r) { return [r[0], (r[1] / a0 - 1) * 100]; }); label = 'Selected accounts (' + HOME.accts.join(', ') + ')'; }
+  if (HOME.accts && S.navacct) { var ai = acctIndex(o).filter(function (r) { return r[0] >= from; }); var a0 = ai.length ? ai[0][1] : 1; port = ai.map(function (r) { return [r[0], (r[1] / a0 - 1) * 100]; }); label = 'Selected accounts (' + HOME.accts.join(', ') + ')' + (ACCT_SKIP ? ' · ' + ACCT_SKIP + ' day(s) where deposits and values did not match were left flat' : ''); }
   else { var b0 = sub.length ? sub[0][2] : 1; port = sub.map(function (r) { return [r[0], (r[2] / b0 - 1) * 100]; }); }
   if (!port.length) port = sub.map(function (r) { return [r[0], 0]; });
   var lines = [{ pts: port, color: 'var(--acc)', fill: !HOME.cmp.length }], leg = ['<span><i style="background:var(--acc)"></i>' + (HOME.accts ? 'Your accounts' : 'You') + '</span>'], rows = [[HOME.accts ? 'Your accounts' : 'You', port.length ? port[port.length - 1][1] : null, null]], last = port.length ? port[port.length - 1][0] : from;
@@ -1548,6 +1554,74 @@ function acctApply() {
   var on = [].filter.call(document.querySelectorAll('.acck'), function (c) { return c.checked; }).map(function (c) { return c.value; }), all = document.querySelectorAll('.acck').length;
   if (!on.length) { toast('Tick at least one account.'); return; }
   HOME.accts = on.length === all ? null : on; hSave(); closeSheet(); if (HOME.accts) HOME.view = 'return'; drawHome(S.ov);
+}
+
+
+/* ---------- People: what belongs to each person (for example a child), and a key that opens only that ---------- */
+var PPL = { d: null };
+var _homeScreen = SCREENS.home;
+SCREENS.home = function (a) { if (S.who && S.who.person) return SCREENS.person(S.who.person); return _homeScreen(a); };
+
+SCREENS.person = function (name) {
+  var mine = !!(S.who && S.who.person), who = mine ? S.who.person : name;
+  setTop(mine ? 'Portfolio' : esc(who), mine ? 'Hello ' + esc(S.who.name) : 'Their portfolio', !mine, refreshBtn());
+  load('person', { person: who }, function (d) { drawPerson(d, mine); }, S.force); S.force = false;
+};
+function drawPerson(d, mine) {
+  var h = '<div class="card hero"><div class="lbl">' + (mine ? 'Total value' : esc(d.person) + ' · total value') + ' · ' + dshort(d.asOf) + '</div><div class="big num">' + usd(d.valueUsd) + '</div>'
+    + '<div class="grid2" style="margin-top:16px"><div class="stat"><div class="k">Investments</div><div class="v">' + usd(d.holdingsUsd) + '</div></div><div class="stat"><div class="k">Cash</div><div class="v">' + usd(d.cashUsd) + '</div></div>'
+    + '<div class="stat ' + cls(d.unrealizedUsd) + '" style="grid-column:1/-1"><div class="k">Gain or loss on what is held</div><div class="v">' + arw(d.unrealizedUsd) + usdS(d.unrealizedUsd) + ' <span class="sm">(' + pc(d.unrealizedPct, 1) + ' on cost ' + usd(d.costUsd) + ')</span></div></div></div></div>';
+  if (d.realisedUsd || d.incomeUsd) h += '<div class="card"><h3>Already earned</h3>' + kv('Realised gain', '<span class="' + cls(d.realisedUsd) + '">' + usdS(d.realisedUsd) + '</span>') + kv('Income', usd(d.incomeUsd)) + '</div>';
+  h += '<div class="card" style="padding:4px 16px"><h3 style="margin-top:12px">Holdings · ' + d.holdings.length + '</h3>' + (d.holdings.length ? d.holdings.map(function (r) {
+    return '<div class="row ' + (r.unrealizedUsd > 0 ? 'up' : r.unrealizedUsd < 0 ? 'dn' : '') + '"><div class="avatar">' + esc(r.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(r.asset) + (r.sharePct ? ' <span class="badge MANUAL">' + num(r.sharePct, 0) + '% share</span>' : '') + '</div><div class="s">' + esc(r.name === r.asset ? (r.sector || '') : r.name) + ' · ' + num(r.qty, 4) + ' shares</div></div><div class="r"><div class="t">' + usd(r.valueUsd) + '</div><div class="s chg ' + cls(r.unrealizedUsd) + '">' + arw(r.unrealizedUsd) + usdS(r.unrealizedUsd) + ' · ' + pc(r.unrealizedPct, 0) + '</div></div></div>';
+  }).join('') : '<div class="empty">Nothing held yet</div>') + '</div>';
+  h += '<div class="note">' + esc(d.note) + '</div>';
+  $('#main').innerHTML = h;
+}
+
+SCREENS.people = function () {
+  setTop('People & shares', 'Who owns what', true, can('settings') ? '<button class="iconbtn" onclick="pplShare()" aria-label="Add a share">' + ico('plus') + '</button>' : '');
+  if (!isAll()) { $('#main').innerHTML = '<div class="empty">This is for the owner.</div>'; return; }
+  load('people', {}, function (d) { PPL.d = d; drawPeople(d); }, S.force); S.force = false;
+};
+function drawPeople(d) {
+  var h = '<div class="card"><div class="lbl tiny" style="text-transform:uppercase;font-weight:600;letter-spacing:.07em">Whole portfolio</div><div class="num" style="font-size:28px;font-weight:700;margin:2px 0 8px">' + usd(d.totalUsd) + '</div>'
+    + '<div class="row"><div class="avatar">YOU</div><div class="grow"><div class="t">You</div><div class="s" style="white-space:normal">everything not given to someone else</div></div><div class="r"><b>' + usd(d.you.valueUsd) + '</b></div></div>';
+  d.people.forEach(function (p) {
+    h += '<div class="row tap ' + (p.unrealizedUsd > 0 ? 'up' : p.unrealizedUsd < 0 ? 'dn' : '') + '" onclick="push(\'person\',\'' + esc(p.person).replace(/'/g, "\\'") + '\')"><div class="avatar">' + esc(p.person.slice(0, 3).toUpperCase()) + '</div><div class="grow"><div class="t">' + esc(p.person) + '</div><div class="s" style="white-space:normal">' + p.count + ' holding' + (p.count === 1 ? '' : 's') + (p.accounts.length ? ' · own account ' + esc(p.accounts.join(', ')) : ' · shares of yours') + '</div></div><div class="r"><b>' + usd(p.valueUsd) + '</b><div class="s chg ' + cls(p.unrealizedUsd) + '">' + arw(p.unrealizedUsd) + usdS(p.unrealizedUsd) + '</div></div></div>';
+  });
+  if (!d.people.length) h += '<div class="empty">No one yet. Give someone a share of a holding, or make an account theirs.</div>';
+  h += '</div>';
+  if (d.over && d.over.length) h += '<div class="banner"><span>⚠️</span><div class="grow"><b>Shares add up to more than 100%</b><div class="sm mut">' + esc(d.over.join(', ')) + '</div></div></div>';
+  h += '<div class="card"><h3>Shares of your holdings</h3>' + (d.allocations.length ? d.allocations.map(function (x, i) {
+    return '<div class="row tap" onclick="pplShare(' + i + ')"><div class="grow"><div class="t">' + esc(x.asset) + ' → ' + esc(x.person) + '</div><div class="s">' + esc(x.acct || 'any account') + (x.note ? ' · ' + esc(x.note) : '') + '</div></div><div class="r"><b>' + num(x.pct, 1) + '%</b></div></div>';
+  }).join('') : '<div class="empty">No shares yet</div>') + (can('settings') ? '<div class="btns"><button class="btn ghost sm" onclick="pplShare()">+ Give a share</button><button class="btn ghost sm" onclick="pplOwners()">Account owners</button></div>' : '') + '</div>';
+  h += '<div class="note">A share is a view: nothing is sold or moved. The person sees that percentage of the position\'s value, cost and gain. A child\'s own account belongs to them as a whole. To let a child open the app, create an access key for them under More, Access keys, and pick their name in the Person box.</div>';
+  $('#main').innerHTML = h;
+}
+function pplNames() { return PPL.d ? PPL.d.people.map(function (p) { return p.person; }) : []; }
+function pplShare(i) {
+  var d = PPL.d, x = i === undefined ? null : d.allocations[i], seen = {}, opts = d.holdings.filter(function (r) { return r.owner === 'OWNER'; }).map(function (r) { return r; });
+  sheet('<h2>' + (x ? 'Change a share' : 'Give a share of a holding') + '</h2><label class="field"><span>Holding</span><select id="plh"' + (x ? ' disabled' : '') + '>' + opts.map(function (r) { var v = r.asset + '|' + r.acct; return '<option value="' + esc(v) + '"' + (x && x.asset === r.asset && x.acct === r.acct ? ' selected' : '') + '>' + esc(r.asset) + ' · ' + esc(r.acct) + ' · ' + usd(r.valueUsd) + '</option>'; }).join('') + '</select></label>'
+    + '<label class="field"><span>Person (choose or type a new name)</span><input id="plp" list="plpl" value="' + esc(x ? x.person : '') + '"' + (x ? ' disabled' : '') + '><datalist id="plpl">' + pplNames().map(function (n) { return '<option>' + esc(n) + '</option>'; }).join('') + '</datalist></label>'
+    + '<label class="field"><span>Share of the position (%)</span><input id="plc" inputmode="decimal" value="' + (x ? x.pct : '') + '" placeholder="for example 20"></label><label class="field"><span>Note (optional)</span><input id="pln" maxlength="120" value="' + esc(x ? x.note : '') + '"></label>'
+    + '<div class="btns"><button class="btn" id="plb" onclick="pplShareGo()">Save</button>' + (x ? '<button class="btn danger" onclick="pplShareGo(true)">Remove share</button>' : '') + '</div>');
+}
+function pplShareGo(remove) {
+  var v = ($('#plh').value || '').split('|'), b = $('#plb'); busy(b, true);
+  api('alloc_set', { asset: v[0], acct: v[1], person: $('#plp').value, pct: remove ? 0 : $('#plc').value, note: $('#pln').value }).then(function (r) { closeSheet(); toast(r.message); clearCache(); S.force = true; SCREENS.people(); }).catch(function (e) { busy(b, false); toast(e.message); });
+}
+function pplOwners() {
+  var d = PPL.d;
+  sheet('<h2>Account owners</h2><p class="mut sm">An account that belongs to a person is theirs as a whole. Leave the box empty for your own accounts.</p>' + d.accounts.map(function (a, i) {
+    return '<label class="field"><span>' + esc(a.broker) + ' · ' + esc(a.id) + '</span><input class="plo" data-acct="' + esc(a.id) + '" list="plpl" value="' + esc(a.owner === 'OWNER' ? '' : a.owner) + '" placeholder="you"></label>';
+  }).join('') + '<datalist id="plpl">' + pplNames().map(function (n) { return '<option>' + esc(n) + '</option>'; }).join('') + '</datalist><div class="btns"><button class="btn" id="plb" onclick="pplOwnersGo()">Save</button></div>');
+}
+function pplOwnersGo() {
+  var b = $('#plb'), cur = {}; PPL.d.accounts.forEach(function (a) { cur[a.id] = a.owner === 'OWNER' ? '' : a.owner; }); var jobs = [];
+  [].forEach.call(document.querySelectorAll('.plo'), function (el) { var id = el.getAttribute('data-acct'), v = el.value.trim(); if (v !== cur[id]) jobs.push({ acct: id, person: v }); });
+  if (!jobs.length) { closeSheet(); return; } busy(b, true);
+  jobs.reduce(function (pr, j) { return pr.then(function () { return api('owner_set', j); }); }, Promise.resolve()).then(function () { closeSheet(); toast('Saved'); clearCache(); S.force = true; SCREENS.people(); }).catch(function (e) { busy(b, false); toast(e.message); });
 }
 
 </script>
