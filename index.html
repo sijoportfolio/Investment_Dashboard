@@ -1132,17 +1132,7 @@ function drawWheel(d) {
   /* 2 open puts */
   h += '<div class="card"><h3>Open puts' + (d.puts.length ? ' · ' + d.puts.length : '') + '</h3>';
   if (!d.puts.length) h += '<div class="empty">No open puts</div>';
-  d.puts.forEach(function (p) {
-    var tone = p.verdict === 'HOLD' || p.verdict === 'CLOSE' ? 'OK' : 'WARN', a = p.ifAssigned;
-    h += '<div style="padding:10px 0;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><b>' + esc(p.asset) + ' ' + num(p.strike, 2) + ' put</b><div class="tiny">' + esc(p.id) + ' · expires ' + dshort(p.expiry) + ' · ' + p.dte + ' days · ' + p.contracts + ' contract' + (p.contracts === 1 ? '' : 's') + '</div></div><span class="badge ' + tone + '">' + esc(p.verdict) + '</span></div>'
-      + kv('Stock now', p.price === null ? 'no price yet' : num(p.price, 2) + ' <span class="tiny">(' + pc(p.moneynessPct, 1) + ' vs strike)</span>' + (p.priceStale ? ' <span class="tiny neg">OLD</span>' : ''))
-      + kv('Break-even', num(p.breakEven, 2) + (p.toBreakEvenPct === null ? '' : ' <span class="tiny">(stock is ' + pcp(Math.abs(p.toBreakEvenPct)) + (p.toBreakEvenPct >= 0 ? ' above' : ' below') + ')</span>'))
-      + kv('Premium', num(p.premium, 2) + ' ' + esc(p.ccy) + ' <span class="tiny">(' + num(p.premiumPerShare, 2) + ' a share' + (p.capturedPct !== null ? ' · ' + p.capturedPct + '% captured' : '') + ')</span>')
-      + kv('Cash tied up', usd(p.collateralUsd))
-      + '<div class="tiny" style="margin-top:6px"><b>If assigned:</b> ' + num(a.shares, 0) + ' shares at ' + num(a.costPerShare, 2) + (a.discountPct === null ? '' : ' (' + pcp(Math.abs(a.discountPct)) + (a.discountPct <= 0 ? ' below' : ' above') + ' today\'s price)') + ' · ' + whBadge(a.check.status) + '</div>' + whItems(a.check)
-      + (p.verdict !== 'HOLD' ? '<div class="tiny" style="margin-top:4px">' + esc(p.why) + '</div>' : '')
-      + '</div>';
-  });
+  d.puts.forEach(function (p, i) { h += whPutRow(p, i); });
   if (d.puts.length) h += '<div class="btns"><button class="btn ghost sm" onclick="push(\'options\')">Close, expire or assign…</button>' + (can('trade_entry') ? '<button class="btn ghost sm" onclick="optEvent(\'STO\')">+ Sell a new put</button>' : '') + '</div>';
   else if (can('trade_entry')) h += '<div class="btns"><button class="btn ghost sm" onclick="optEvent(\'STO\')">+ Sell a new put</button></div>';
   h += '</div>';
@@ -1640,31 +1630,35 @@ drawWheel = function (d) {
 function whTodayHtml(d) {
   var t = d.today || [];
   if (!t.length) return '<div class="card"><h3>Needs you today</h3><div class="tiny">Nothing. No option has expired unconfirmed, and no option or share is waiting for a decision.</div></div>';
-  var tone = { PENDING: 'RED', ACT: 'WARN', IDLE: '' }, lab = { PENDING: 'CONFIRM', ACT: 'ACT', IDLE: 'NO CALL' };
+  var tone = { PENDING: 'RED', ACT: 'WARN', WATCH: 'WARN', IDLE: '' }, lab = { PENDING: 'CONFIRM', ACT: 'ACT', WATCH: 'WATCH', IDLE: 'NO CALL' };
   return '<div class="card"><h3>Needs you today · ' + t.length + '</h3>' + t.map(function (x) { return '<div class="row"><div class="grow"><div class="t" style="white-space:normal"><span class="badge ' + (tone[x.kind] || '') + '">' + (lab[x.kind] || x.kind) + '</span> ' + esc(x.asset) + '</div><div class="s" style="white-space:normal">' + esc(x.text) + '</div></div></div>'; }).join('') + '</div>';
 }
 function whPendingHtml(d) {
-  var h = '';
-  (d.pending || []).forEach(function (p, i) {
-    var put = p.type === 'PUT', sug = p.suggest, line;
-    if (sug === 'ASSIGN') line = put ? 'Most likely <b>assigned</b>: you buy ' + num(p.shares, 0) + ' shares at ' + num(p.strike, 2) + ' (' + num(p.costIfAssigned, 2) + ' a share after the premium you kept). Cash used ' + num(p.cashIfAssigned, 0) + ' ' + esc(p.ccy) + '.' : 'Most likely <b>called away</b>: your ' + num(p.shares, 0) + ' shares are sold at ' + num(p.strike, 2) + ' and you keep the premium.';
-    else if (sug === 'EXPIRE') line = 'Most likely <b>expired worthless</b>: you keep the whole premium of ' + num(p.premium, 2) + ' ' + esc(p.ccy) + '.';
-    else line = 'No closing price is available, so no outcome is suggested.';
-    h += '<div class="card" style="border-left:4px solid var(--warn)"><h3>Confirm what happened · ' + esc(p.asset) + ' ' + p.type.toLowerCase() + ' ' + num(p.strike, 2) + '</h3>'
-      + '<div class="tiny">' + esc(p.id) + ' · ' + p.contracts + ' contract' + (p.contracts > 1 ? 's' : '') + ' · expired ' + dshort(p.expiry) + ' (' + p.daysAgo + ' day' + (p.daysAgo === 1 ? '' : 's') + ' ago)</div>'
-      + (p.closePrice === null ? '' : kv('Stock closed at', num(p.closePrice, 2) + ' <span class="tiny">' + pc(p.vsStrikePct, 1) + ' vs strike · price from ' + dshort(p.closeDate) + '</span>'))
-      + '<div class="sm" style="margin:8px 0;white-space:normal">' + line + '</div>'
-      + (p.nearStrike ? '<div class="note" style="margin:6px 0">Very close to the strike. Check your IBKR statement before confirming.</div>' : '')
-      + (p.priceOld ? '<div class="note" style="margin:6px 0">The price on file is older than the expiry day, so check the outcome with IBKR.</div>' : '')
-      + (p.shortOfShares ? '<div class="note" style="margin:6px 0">You hold fewer shares than this call covers.</div>' : '')
-      + (can('trade_entry') ? '<div class="btns" style="flex-wrap:wrap">' + (sug ? '<button class="btn" onclick="whConfirm(' + i + ',\'' + sug + '\',this)">Confirm: ' + (sug === 'EXPIRE' ? 'expired' : (put ? 'assigned' : 'called away')) + '</button>' : '') + '<button class="btn ghost" onclick="whOther(' + i + ')">It was different…</button></div>' : '')
-      + '</div>';
-  });
-  return h;
+  var p = d.pending || []; if (!p.length) return '';
+  return '<div class="card" style="border-left:4px solid var(--warn)"><h3>Confirm what happened · ' + p.length + '</h3>' + p.map(function (x, i) {
+    var lab = x.suggest === 'EXPIRE' ? 'likely expired' : x.suggest === 'ASSIGN' ? (x.type === 'PUT' ? 'likely assigned' : 'likely called away') : 'no price';
+    return '<div class="row tap" onclick="whPendOpen(' + i + ')"><div class="grow"><div class="t" style="white-space:normal">' + esc(x.asset) + ' ' + num(x.strike, 2) + ' ' + x.type.toLowerCase() + '</div><div class="s" style="white-space:normal">expired ' + dshort(x.expiry) + ' · ' + (x.closePrice === null ? 'no closing price' : 'stock closed ' + num(x.closePrice, 2) + ' (' + pc(x.vsStrikePct, 1) + ' vs strike)') + '</div></div><div class="r"><span class="badge WARN">' + lab + '</span></div></div>';
+  }).join('') + '</div>';
 }
+function whPendOpen(i) {
+  var p = WH.d.pending[i]; if (!p) return;
+  var put = p.type === 'PUT', sug = p.suggest, line;
+  if (sug === 'ASSIGN') line = put ? 'Most likely <b>assigned</b>: you buy ' + num(p.shares, 0) + ' shares at ' + num(p.strike, 2) + ' (' + num(p.costIfAssigned, 2) + ' a share after the premium you kept). Cash used ' + num(p.cashIfAssigned, 0) + ' ' + esc(p.ccy) + '.' : 'Most likely <b>called away</b>: your ' + num(p.shares, 0) + ' shares are sold at ' + num(p.strike, 2) + ' and you keep the premium.';
+  else if (sug === 'EXPIRE') line = 'Most likely <b>expired worthless</b>: you keep the whole premium of ' + num(p.premium, 2) + ' ' + esc(p.ccy) + '.';
+  else line = 'No closing price is available, so no outcome is suggested.';
+  sheet('<h2>' + esc(p.asset) + ' ' + p.type.toLowerCase() + ' ' + num(p.strike, 2) + '</h2><div class="tiny" style="margin:-6px 0 10px">' + esc(p.id) + ' · ' + p.contracts + ' contract' + (p.contracts > 1 ? 's' : '') + ' · expired ' + dshort(p.expiry) + ' (' + p.daysAgo + ' day' + (p.daysAgo === 1 ? '' : 's') + ' ago)</div>'
+    + (p.closePrice === null ? '' : kv('Stock closed at', num(p.closePrice, 2) + ' <span class="tiny">' + pc(p.vsStrikePct, 1) + ' vs strike · price from ' + dshort(p.closeDate) + '</span>'))
+    + kv('Premium', num(p.premium, 2) + ' ' + esc(p.ccy))
+    + '<div class="sm" style="margin:8px 0;white-space:normal">' + line + '</div>'
+    + (p.nearStrike ? '<div class="note" style="margin:6px 0">Very close to the strike. Check your IBKR statement before confirming.</div>' : '')
+    + (p.priceOld ? '<div class="note" style="margin:6px 0">The price on file is older than the expiry day, so check the outcome with IBKR.</div>' : '')
+    + (p.shortOfShares ? '<div class="note" style="margin:6px 0">You hold fewer shares than this call covers.</div>' : '')
+    + (can('trade_entry') ? '<div class="btns" style="flex-wrap:wrap">' + (sug ? '<button class="btn" onclick="whConfirm(' + i + ',\'' + sug + '\',this)">Confirm: ' + (sug === 'EXPIRE' ? 'expired' : (put ? 'assigned' : 'called away')) + '</button>' : '') + '<button class="btn ghost" onclick="whOther(' + i + ')">It was different…</button></div>' : ''));
+}
+
 function whConfirm(i, ev, btn) {
   var p = WH.d.pending[i]; if (!p) return; busy(btn, true);
-  api('option_event', { event: ev, option_id: p.id, date: p.expiry }).then(whDone).catch(function (e) { toast(e.message); busy(btn, false); });
+  api('option_event', { event: ev, option_id: p.id, date: p.expiry }).then(function (r) { closeSheet(); whDone(r); }).catch(function (e) { toast(e.message); busy(btn, false); });
 }
 function whOther(i) {
   var p = WH.d.pending[i]; if (!p) return; var put = p.type === 'PUT';
@@ -1684,35 +1678,45 @@ function whOtherGo(i) {
 function whBasisHtml(d) {
   var rows = (d.basis || []).filter(function (b) { return b.fromPut || b.coveredShares > 0; });
   if (!rows.length) return '';
-  var h = '<div class="card"><h3>Shares you hold from the wheel</h3>';
-  rows.forEach(function (b) {
-    var below = b.vsAdjustedPct !== null && b.vsAdjustedPct < 0;
-    h += '<div style="padding:10px 0;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>' + esc(b.asset) + ' <span class="tiny">' + num(b.shares, 0) + ' shares · ' + esc(b.acct) + '</span></b>'
-      + (b.price !== null ? '<span class="num ' + (below ? 'neg' : 'pos') + '">' + pc(b.vsAdjustedPct, 1) + ' <span class="tiny">vs your cost</span></span>' : '') + '</div>'
-      + kv('Your cost a share', num(b.costPerShare, 2) + ' ' + esc(b.ccy) + ' <span class="tiny">(what the ledger holds; the put premium is already taken off)</span>')
-      + kv('Call premiums kept', num(b.keptPerShare, 2) + ' a share <span class="tiny">(' + num(b.keptTotal, 0) + ' in all)</span>')
-      + kv('Cost after premiums', '<b>' + num(b.adjustedPerShare, 2) + '</b>' + (b.price !== null ? ' <span class="tiny">stock now ' + num(b.price, 2) + '</span>' : ''))
-      + kv('Covered by calls', num(b.coveredShares, 0) + ' of ' + num(b.shares, 0) + ' shares' + (b.contractsFree > 0 ? ' <span class="tiny">(' + b.contractsFree + ' contract' + (b.contractsFree > 1 ? 's' : '') + ' free)</span>' : ''));
-    if (b.contractsFree > 0) h += '<div class="btns"><button class="btn ghost sm" onclick="cfnRun(\'' + esc(b.asset) + '\')">Find covered calls for ' + esc(b.asset) + '</button></div>';
-    if (can('settings') && b.contractsFree > 0) h += '<div class="tiny" style="margin-top:4px">' + (b.floorOk ? 'Calls below your cost are allowed for this stock. <a href="#" onclick="cfnFloor(\'' + esc(b.asset) + '\',true);return false">Stop allowing</a>' : 'Calls below your cost are shown greyed out. <a href="#" onclick="cfnFloor(\'' + esc(b.asset) + '\',false);return false">Allow them</a>') + '</div>';
-    h += '</div>';
-  });
-  return h + '<div class="note">The ledger keeps your real purchase cost. "Cost after premiums" is a view: it is what you would need to sell at to break even once the call premiums are counted. A call strike below it would lock in a loss, so those are held back.</div></div>';
+  return '<div class="card"><h3>Shares you hold from the wheel · ' + rows.length + '</h3>' + rows.map(function (b) {
+    var i = d.basis.indexOf(b), below = b.vsAdjustedPct !== null && b.vsAdjustedPct < 0;
+    return '<div class="row tap" onclick="whBasisOpen(' + i + ')"><div class="grow"><div class="t" style="white-space:normal">' + esc(b.asset) + ' <span class="tiny">' + num(b.shares, 0) + ' shares</span></div><div class="s" style="white-space:normal">cost after premiums ' + num(b.adjustedPerShare, 2) + (b.price !== null ? ' · stock ' + num(b.price, 2) : '') + ' · calls on ' + num(b.coveredShares, 0) + '/' + num(b.shares, 0) + '</div></div><div class="r">' + (b.vsAdjustedPct !== null ? '<span class="s chg ' + (below ? 'neg' : 'pos') + '">' + (below ? '▼ ' : '▲ ') + pcp(Math.abs(b.vsAdjustedPct)) + '</span>' : '') + (b.contractsFree > 0 ? '<div class="tiny">no call yet</div>' : '') + '</div></div>';
+  }).join('') + '</div>';
 }
+function whBasisOpen(i) {
+  var b = WH.d.basis[i]; if (!b) return; var below = b.vsAdjustedPct !== null && b.vsAdjustedPct < 0;
+  var h = '<h2>' + esc(b.asset) + ' <span class="tiny">' + num(b.shares, 0) + ' shares · ' + esc(b.acct) + '</span></h2>'
+    + (b.price !== null ? kv('Stock now', num(b.price, 2) + ' <span class="' + (below ? 'neg' : 'pos') + ' tiny">' + pc(b.vsAdjustedPct, 1) + ' vs your cost after premiums</span>') : '')
+    + kv('Your cost a share', num(b.costPerShare, 2) + ' ' + esc(b.ccy) + ' <span class="tiny">(what the ledger holds; the put premium is already taken off)</span>')
+    + kv('Call premiums kept', num(b.keptPerShare, 2) + ' a share <span class="tiny">(' + num(b.keptTotal, 0) + ' in all)</span>')
+    + kv('Cost after premiums', '<b>' + num(b.adjustedPerShare, 2) + '</b>')
+    + kv('Covered by calls', num(b.coveredShares, 0) + ' of ' + num(b.shares, 0) + ' shares' + (b.contractsFree > 0 ? ' <span class="tiny">(' + b.contractsFree + ' contract' + (b.contractsFree > 1 ? 's' : '') + ' free)</span>' : ''))
+    + '<div class="note">The ledger keeps your real purchase cost. "Cost after premiums" is a view: what you would need to sell at to break even once the call premiums are counted. A call strike below it would lock in a loss, so those are held back.</div>';
+  if (b.contractsFree > 0) h += '<div class="btns"><button class="btn" onclick="closeSheet();cfnRun(\'' + esc(b.asset) + '\')">Find covered calls</button></div>';
+  if (can('settings') && b.contractsFree > 0) h += '<div class="tiny" style="margin-top:6px">' + (b.floorOk ? 'Calls below your cost are allowed for this stock. <a href="#" onclick="closeSheet();cfnFloor(\'' + esc(b.asset) + '\',true);return false">Stop allowing</a>' : 'Calls below your cost are held back for this stock. <a href="#" onclick="closeSheet();cfnFloor(\'' + esc(b.asset) + '\',false);return false">Allow them</a>') + '</div>';
+  sheet(h);
+}
+
 function cfnFloor(asset, off) { api('wheel_allow', { asset: asset, kind: 'floor', on: !off }).then(function (r) { toast(r.message); clearCache(); S.force = true; SCREENS.wheel(); }).catch(function (e) { toast(e.message); }); }
 
 function whCallsHtml(d) {
-  var c = d.calls || [];
-  if (!c.length) return '';
-  return '<div class="card"><h3>Open covered calls · ' + c.length + '</h3>' + c.map(function (x) {
-    var tone = x.verdict === 'HOLD' || x.verdict === 'CLOSE' ? 'OK' : 'WARN', ic = x.ifCalled;
-    return '<div style="padding:10px 0;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><b>' + esc(x.asset) + ' ' + num(x.strike, 2) + ' call</b><div class="tiny">' + esc(x.id) + ' · ' + x.contracts + ' contract' + (x.contracts > 1 ? 's' : '') + ' · ' + dshort(x.expiry) + ' (' + x.dte + ' days)</div></div><span class="badge ' + tone + '">' + esc(x.verdict) + '</span></div>'
-      + kv('Stock now', x.price === null ? 'no price yet' : num(x.price, 2) + ' <span class="tiny">(' + pc(x.moneynessPct, 1) + ' vs strike)</span>')
-      + kv('Premium', num(x.premium, 2) + ' ' + esc(x.ccy) + (x.capturedPct !== null ? ' <span class="tiny">' + x.capturedPct + '% captured</span>' : ''))
-      + (ic ? kv('If called away', '<span class="' + (ic.gain >= 0 ? 'pos' : 'neg') + '">' + (ic.gain >= 0 ? '+' : '−') + num(Math.abs(ic.gain), 0) + ' ' + esc(x.ccy) + '</span> <span class="tiny">(' + pc(ic.gainPct, 1) + ' on your cost after premiums' + (ic.belowCost ? ', <b>below your cost</b>' : '') + ')</span>') : '')
-      + (x.verdict !== 'HOLD' ? '<div class="tiny" style="margin-top:4px">' + esc(x.why) + '</div>' : '') + '</div>';
-  }).join('') + '<div class="btns"><button class="btn ghost sm" onclick="push(\'options\')">Close, expire or assign…</button></div></div>';
+  var c = d.calls || []; if (!c.length) return '';
+  return '<div class="card"><h3>Open covered calls · ' + c.length + '</h3>' + c.map(function (x, i) {
+    var tone = x.verdict === 'HOLD' || x.verdict === 'CLOSE' ? 'OK' : 'WARN';
+    return '<div class="row tap" onclick="whCallOpen(' + i + ')"><div class="grow"><div class="t" style="white-space:normal">' + esc(x.asset) + ' ' + num(x.strike, 2) + ' call <span class="tiny">' + x.contracts + 'x · ' + dshort(x.expiry) + ' · ' + x.dte + 'd</span></div><div class="s" style="white-space:normal">' + (x.price === null ? 'no price yet' : 'stock ' + num(x.price, 2) + ' (' + pc(x.moneynessPct, 1) + ' vs strike)') + (x.capturedPct !== null ? ' · ' + x.capturedPct + '% captured' : '') + '</div>' + whFlags(x) + '</div><div class="r"><span class="badge ' + tone + '">' + esc(x.verdict) + '</span></div></div>';
+  }).join('') + '</div>';
 }
+function whCallOpen(i) {
+  var x = WH.d.calls[i]; if (!x) return; var ic = x.ifCalled;
+  sheet('<h2>' + esc(x.asset) + ' ' + num(x.strike, 2) + ' call</h2><div class="tiny" style="margin:-6px 0 10px">' + esc(x.id) + ' · ' + x.contracts + ' contract' + (x.contracts > 1 ? 's' : '') + ' · expires ' + dshort(x.expiry) + ' (' + x.dte + ' days)</div>'
+    + kv('Stock now', x.price === null ? 'no price yet' : num(x.price, 2) + ' <span class="tiny">(' + pc(x.moneynessPct, 1) + ' vs strike)</span>')
+    + kv('Premium', num(x.premium, 2) + ' ' + esc(x.ccy) + (x.capturedPct !== null ? ' <span class="tiny">' + x.capturedPct + '% captured</span>' : ''))
+    + (ic ? kv('If called away', '<span class="' + (ic.gain >= 0 ? 'pos' : 'neg') + '">' + (ic.gain >= 0 ? '+' : '−') + num(Math.abs(ic.gain), 0) + ' ' + esc(x.ccy) + '</span> <span class="tiny">(' + pc(ic.gainPct, 1) + ' on your cost after premiums' + (ic.belowCost ? ', <b>below your cost</b>' : '') + ')</span>') : '')
+    + kv('Verdict', esc(x.verdict)) + (x.verdict !== 'HOLD' ? '<div class="tiny" style="margin-top:4px">' + esc(x.why) + '</div>' : '')
+    + whFlagsBox(x)
+    + '<div class="btns" style="flex-wrap:wrap"><button class="btn" onclick="rollRun(\'' + esc(x.id) + '\')">Find a roll</button><button class="btn ghost" onclick="closeSheet();push(\'options\')">Close, expire or assign…</button></div>');
+}
+
 
 /* the covered-call finder */
 function cfnCard(d) {
@@ -1782,12 +1786,90 @@ function cfnCopy(held, i) {
   try { navigator.clipboard.writeText(t).then(function () { toast('Copied: ' + t); }, function () { toast(t); }); } catch (e) { toast(t); }
 }
 
-/* what the wheel has earned, stock by stock */
 function whResultsHtml(d) {
   var r = d.results; if (!r || !r.rows.length) return '';
   return '<div class="card"><h3>Wheel results</h3><div class="grid2"><div class="stat"><div class="k">Premium kept</div><div class="v pos">' + usd(r.premiumUsd) + '</div><div class="tiny">' + (r.annPct !== null ? pcp(r.annPct) + ' a year on the cash tied up' : '') + '</div></div><div class="stat"><div class="k">Cycles completed</div><div class="v">' + r.cycles + '</div><div class="tiny">put assigned, then called away</div></div></div>'
-    + '<table class="t" style="margin-top:8px"><tr><th>Stock</th><th class="r">Premium</th><th class="r">Shares</th><th class="r">Total</th></tr>' + r.rows.map(function (x) { return '<tr><td>' + esc(x.asset) + '<div class="tiny">' + x.putsSold + ' put' + (x.putsSold === 1 ? '' : 's') + (x.callsSold ? ' · ' + x.callsSold + ' call' + (x.callsSold === 1 ? '' : 's') : '') + (x.assigned ? ' · assigned ' + x.assigned : '') + (x.calledAway ? ' · called away ' + x.calledAway : '') + '</div></td><td class="r">' + usd(x.premiumUsd) + '</td><td class="r ' + cls(x.stockUsd) + '">' + usd(x.stockUsd) + '</td><td class="r ' + cls(x.totalUsd) + '"><b>' + usd(x.totalUsd) + '</b></td></tr>'; }).join('') + '</table>'
-    + '<div class="note">Premium is what the options paid. Shares is the gain or loss on shares that came from a put or went away on a call, measured against your real cost. Premium on assigned options is counted once, in the premium column.</div></div>';
+    + r.rows.map(function (x, i) { return '<div class="row tap" onclick="whResOpen(' + i + ')"><div class="grow"><div class="t" style="white-space:normal">' + esc(x.asset) + '</div><div class="s" style="white-space:normal">' + x.putsSold + ' put' + (x.putsSold === 1 ? '' : 's') + (x.callsSold ? ' · ' + x.callsSold + ' call' + (x.callsSold === 1 ? '' : 's') : '') + (x.assigned ? ' · assigned ' + x.assigned : '') + (x.calledAway ? ' · called away ' + x.calledAway : '') + '</div></div><div class="r"><b class="' + cls(x.totalUsd) + '">' + usd(x.totalUsd) + '</b></div></div>'; }).join('') + '</div>';
+}
+function whResOpen(i) {
+  var x = WH.d.results.rows[i]; if (!x) return;
+  sheet('<h2>' + esc(x.asset) + '</h2>' + kv('Options sold', x.putsSold + ' put' + (x.putsSold === 1 ? '' : 's') + ', ' + x.callsSold + ' call' + (x.callsSold === 1 ? '' : 's')) + kv('Assigned · called away', x.assigned + ' · ' + x.calledAway)
+    + kv('Premium kept', usd(x.premiumUsd) + (x.annPct !== null ? ' <span class="tiny">' + pcp(x.annPct) + ' a year on the cash tied up</span>' : ''))
+    + kv('Gain or loss on shares', '<span class="' + cls(x.stockUsd) + '">' + usd(x.stockUsd) + '</span>') + kv('Total', '<b class="' + cls(x.totalUsd) + '">' + usd(x.totalUsd) + '</b>')
+    + '<div class="note">Premium is what the options paid. Shares is the gain or loss on shares that came from a put or went away on a call, measured against your real cost. Premium on assigned options is counted once, in the premium column.</div>');
+}
+
+
+/* open puts: one compact row each, details on tap */
+function whPutRow(p, i) {
+  var tone = p.verdict === 'HOLD' || p.verdict === 'CLOSE' ? 'OK' : 'WARN';
+  return '<div class="row tap" onclick="whPutOpen(' + i + ')"><div class="grow"><div class="t" style="white-space:normal">' + esc(p.asset) + ' ' + num(p.strike, 2) + ' put <span class="tiny">' + p.contracts + 'x · ' + dshort(p.expiry) + ' · ' + p.dte + 'd</span></div><div class="s" style="white-space:normal">' + (p.price === null ? 'no price yet' : 'stock ' + num(p.price, 2) + ' (' + pc(p.moneynessPct, 1) + ' vs strike)') + (p.priceStale ? ' OLD' : '') + (p.capturedPct !== null ? ' · ' + p.capturedPct + '% captured' : '') + '</div>' + whFlags(p) + '</div><div class="r"><span class="badge ' + tone + '">' + esc(p.verdict) + '</span></div></div>';
+}
+function whPutOpen(i) {
+  var p = WH.d.puts[i]; if (!p) return; var a = p.ifAssigned;
+  sheet('<h2>' + esc(p.asset) + ' ' + num(p.strike, 2) + ' put</h2><div class="tiny" style="margin:-6px 0 10px">' + esc(p.id) + ' · expires ' + dshort(p.expiry) + ' · ' + p.dte + ' days · ' + p.contracts + ' contract' + (p.contracts === 1 ? '' : 's') + '</div>'
+    + kv('Stock now', p.price === null ? 'no price yet' : num(p.price, 2) + ' <span class="tiny">(' + pc(p.moneynessPct, 1) + ' vs strike)</span>' + (p.priceStale ? ' <span class="tiny neg">OLD</span>' : ''))
+    + kv('Break-even', num(p.breakEven, 2) + (p.toBreakEvenPct === null ? '' : ' <span class="tiny">(stock is ' + pcp(Math.abs(p.toBreakEvenPct)) + (p.toBreakEvenPct >= 0 ? ' above' : ' below') + ')</span>'))
+    + kv('Premium', num(p.premium, 2) + ' ' + esc(p.ccy) + ' <span class="tiny">(' + num(p.premiumPerShare, 2) + ' a share' + (p.capturedPct !== null ? ' · ' + p.capturedPct + '% captured' : '') + ')</span>')
+    + kv('Cash tied up', usd(p.collateralUsd))
+    + '<div class="tiny" style="margin-top:6px"><b>If assigned:</b> ' + num(a.shares, 0) + ' shares at ' + num(a.costPerShare, 2) + (a.discountPct === null ? '' : ' (' + pcp(Math.abs(a.discountPct)) + (a.discountPct <= 0 ? ' below' : ' above') + ' today\'s price)') + ' · ' + whBadge(a.check.status) + '</div>' + whItems(a.check)
+    + (p.verdict !== 'HOLD' ? '<div class="tiny" style="margin-top:4px">' + esc(p.why) + '</div>' : '')
+    + whFlagsBox(p)
+    + '<div class="btns" style="flex-wrap:wrap"><button class="btn" onclick="rollRun(\'' + esc(p.id) + '\')">Find a roll</button><button class="btn ghost" onclick="closeSheet();push(\'options\')">Close, expire or assign…</button></div>');
+}
+
+/* ---------- Wheel, step 4: flags and the roll finder ---------- */
+function whFlags(o) { return (o.flags && o.flags.length) ? '<div class="tiny" style="margin-top:3px">' + o.flags.map(function (f) { return '<span class="badge WARN">' + esc(f.t) + '</span>'; }).join(' ') + '</div>' : ''; }
+function whFlagsBox(o) { return (o.flags && o.flags.length) ? '<div class="note" style="margin:8px 0">Worth a look: ' + o.flags.map(function (f) { return esc(f.t); }).join('; ') + '.</div>' : ''; }
+var RFN = { d: null };
+function rollRun(id) {
+  sheet('<h2>Finding rolls…</h2><div class="empty">Reading option prices for the current option and the next expiries.</div>');
+  api('roll_find', { option_id: id }).then(function (d) { RFN.d = d; rollList(); }).catch(function (e) { sheet('<h2>No roll list</h2><div class="empty neg">' + esc(e.message) + '</div><div class="btns"><button class="btn ghost" onclick="closeSheet()">Close</button></div>'); });
+}
+function rollRow(c, i, held) {
+  var o = RFN.d.option, chance = o.type === 'PUT' ? c.pAssignPct : c.pCalledPct, nm = c.netMid;
+  return '<div class="row tap" onclick="rollOpen(' + i + ',' + (held ? 1 : 0) + ')"><div class="grow"><div class="t" style="white-space:normal">' + dshort(c.expiry) + ' · strike ' + num(c.strike, c.strike % 1 ? 2 : 0) + (c.strikeChange ? ' <span class="tiny">(' + (c.strikeChange > 0 ? '+' : '−') + num(Math.abs(c.strikeChange), 2) + ')</span>' : '') + (c.top ? ' <span class="badge OK">TOP</span>' : '') + '</div>'
+    + '<div class="s" style="white-space:normal">+' + c.extraDays + ' days · new premium ' + num(c.mid, 2) + ' · <b class="' + (nm >= 0 ? 'pos' : 'neg') + '">' + (nm >= 0 ? 'net +' : 'net −') + num(Math.abs(nm), 2) + '</b> a share · ' + pcp(chance) + ' chance of ' + (o.type === 'PUT' ? 'assignment' : 'being called') + '</div>'
+    + '<div class="tiny" style="margin-top:3px">' + (nm >= 0 ? 'You take in ' : 'You pay ') + usd(Math.abs(c.netTotal)) + ' for ' + o.contracts + ' contract' + (o.contracts > 1 ? 's' : '') + ' ' + fndEv(c) + '</div></div><div class="r"><b>' + num(c.overall, 0) + '</b><div class="tiny">overall</div></div></div>';
+}
+function rollList() {
+  var d = RFN.d, o = d.option, h = '<h2>Roll ' + esc(o.asset) + ' ' + num(o.strike, 2) + ' ' + o.type.toLowerCase() + '</h2><div class="tiny" style="margin:-6px 0 10px">' + esc(o.id) + ' · expires ' + dshort(o.expiry) + ' (' + o.dte + ' days) · stock ' + num(d.price, 2) + '</div>'
+    + kv('Cost to buy it back', num(d.old.ask, 2) + ' <span class="tiny">a share at the ask · middle ' + num(d.old.mid, 2) + '</span>');
+  if (d.closed) h += '<div class="note" style="margin:6px 0">The US market looks closed, so these prices are from the last session. Check them in IBKR first.</div>';
+  h += '<div class="tiny" style="margin:6px 0">New expiry ' + d.rules.minExtra + '–' + d.rules.maxExtra + ' days after the current one · ' + (o.type === 'PUT' ? 'same or lower strike' : 'same or higher strike') + ' · ' + (d.rules.maxDebit > 0 ? 'a debit of up to ' + num(d.rules.maxDebit, 2) + ' a share accepted' : 'only rolls that bring in money') + '</div>';
+  if (!d.main.length) h += '<div class="empty">No roll passes all your gates right now.' + (d.held.length ? ' ' + d.held.length + ' are held back below.' : '') + (d.rules.maxDebit > 0 ? '' : ' Raising opt_roll_max_debit in Settings shows small debit rolls.') + '</div>';
+  d.main.forEach(function (c, i) { h += rollRow(c, i, false); });
+  if (d.held.length) { h += '<div class="tiny" style="margin:10px 0 4px"><b>Held back</b></div>'; d.held.forEach(function (c, i) { h += rollRow(c, i, true) + '<div class="tiny" style="margin:-2px 0 8px">Held back: ' + esc(c.reasons.map(function (r) { return r === 'COST' ? 'the strike plus premium is below your cost after premiums' : 'earnings ' + dshort(c.earningsDate) + ' fall inside it'; }).join(' and ')) + '</div>'; }); }
+  sheet(h);
+}
+function rollGet(held, i) { return (held ? RFN.d.held : RFN.d.main)[i]; }
+function rollOpen(i, held) {
+  var d = RFN.d, o = d.option, c = rollGet(held, i); if (!c) return;
+  var h = '<h2>' + esc(o.asset) + ' ' + (o.type === 'PUT' ? 'put' : 'call') + ': ' + num(o.strike, 2) + ' → ' + num(c.strike, 2) + '</h2><div class="tiny" style="margin:-6px 0 10px">' + dshort(o.expiry) + ' → ' + dshort(c.expiry) + ' (+' + c.extraDays + ' days)</div>'
+    + kv('Buy back the current one', num(d.old.ask, 2) + ' <span class="tiny">a share (ask)</span>')
+    + kv('Sell the new one', num(c.mid, 2) + ' <span class="tiny">bid ' + num(c.bid, 2) + ' · ask ' + num(c.ask, 2) + ' · gap ' + pcp(c.spreadPct) + '</span>')
+    + kv('Net (middle prices)', '<b class="' + (c.netMid >= 0 ? 'pos' : 'neg') + '">' + (c.netMid >= 0 ? '+' : '−') + num(Math.abs(c.netMid), 2) + '</b> a share <span class="tiny">(' + (c.netTotal >= 0 ? '+' : '−') + usd(Math.abs(c.netTotal)) + ' for ' + o.contracts + ' contract' + (o.contracts > 1 ? 's' : '') + ')</span>')
+    + kv('Net if you get the worst prices', (c.netWorst >= 0 ? '+' : '−') + num(Math.abs(c.netWorst), 2) + ' <span class="tiny">a share (sell at bid, buy back at ask)</span>')
+    + kv('Yield on the new one', pcp(c.annYieldPct) + ' a year')
+    + kv(o.type === 'PUT' ? 'Chance of assignment' : 'Chance of being called', pcp(o.type === 'PUT' ? c.pAssignPct : c.pCalledPct) + ' <span class="tiny">(implied volatility ' + pcp(c.ivPct) + ', delta ' + num(c.delta, 2) + ')</span>')
+    + (o.type === 'PUT' ? kv('Cash tied up changes by', (c.cashChange > 0 ? '+' : c.cashChange < 0 ? '−' : '') + usd(Math.abs(c.cashChange))) : '')
+    + kv('Open contracts · volume', num(c.oi, 0) + ' · ' + num(c.volume, 0)) + kv('Overall score', '<b>' + num(c.overall, 0) + '</b>');
+  if (c.events && c.events.length) h += '<div style="margin-top:8px"><b class="sm">Dates inside the new option</b>' + c.events.map(function (e) { return '<div class="tiny">' + dshort(e.date) + ' · ' + esc(e.label) + (e.kind === 'EXDIV' && o.type === 'CALL' ? ' (a dividend before expiry can lead to early assignment)' : '') + '</div>'; }).join('') + '</div>';
+  else if (!c.earningsKnown) h += '<div class="tiny neg" style="margin-top:8px">No earnings date came back from Yahoo for this stock. Check it before rolling.</div>';
+  h += '<div class="btns" style="flex-wrap:wrap">' + (can('trade_entry') ? '<button class="btn" onclick="rollForm(' + i + ',' + (held ? 1 : 0) + ')">Record roll…</button>' : '') + '<button class="btn ghost" onclick="rollList()">Back to the list</button></div>';
+  sheet(h);
+}
+function rollForm(i, held) {
+  var d = RFN.d, o = d.option, c = rollGet(held, i), today = new Date().toISOString().slice(0, 10);
+  var f = function (id, lab, v) { return '<label class="field"><span>' + lab + '</span><input type="number" step="any" id="' + id + '" value="' + (v === undefined || v === null ? '' : v) + '" inputmode="decimal"></label>'; };
+  sheet('<h2>Record the roll</h2><div class="tiny" style="margin:-6px 0 10px">Buys back ' + esc(o.id) + ' and sells the new ' + esc(o.asset) + ' ' + num(c.strike, 2) + ' ' + o.type.toLowerCase() + ' for ' + dshort(c.expiry) + '. Two entries are saved together. Put in the prices you really got.</div>'
+    + '<label class="field"><span>Date</span><input type="date" id="rf_d" value="' + today + '"></label><div class="grid2">' + f('rf_cp', 'Paid to buy back, a share', d.old.ask) + f('rf_cf', 'Commission (buy back)', 0) + f('rf_np', 'Received for the new one, a share', c.mid) + f('rf_nf', 'Commission (new)', 0) + '</div>'
+    + '<div class="btns"><button class="btn" id="rf_b" onclick="rollSave(' + i + ',' + (held ? 1 : 0) + ')">Save both</button><button class="btn ghost" onclick="rollOpen(' + i + ',' + (held ? 1 : 0) + ')">Back</button></div>');
+}
+function rollSave(i, held) {
+  var d = RFN.d, o = d.option, c = rollGet(held, i), b = $('#rf_b');
+  var p = { option_id: o.id, date: $('#rf_d').value, close_price: $('#rf_cp').value, close_fees: $('#rf_cf').value, strike: c.strike, expiry: c.expiry, price: $('#rf_np').value, fees: $('#rf_nf').value };
+  busy(b, true); api('option_roll', p).then(function (r) { closeSheet(); whDone(r); }).catch(function (e) { toast(e.message); busy(b, false); });
 }
 
 </script>
