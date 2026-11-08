@@ -333,7 +333,7 @@ function lineChart(id, lines, opt) {
   opt = opt || {}; var W = 340, H = opt.h || 170, pl = 4, pr = 4, pt = 10, pb = 18, all = [];
   lines.forEach(function (l) { l.pts.forEach(function (p) { if (p[1] !== null && !isNaN(p[1])) all.push(p[1]); }); });
   if (!all.length) return '<div class="empty">No data yet</div>';
-  var mn = Math.min.apply(null, all), mx = Math.max.apply(null, all); if (mn === mx) { mn -= 1; mx += 1; } var padv = (mx - mn) * .08, was0 = mn >= 0; mn -= padv; mx += padv; if (was0 && mn < 0) mn = 0;
+  var mn = Math.min.apply(null, all), mx = Math.max.apply(null, all); if (mn === mx) { mn -= 1; mx += 1; } var padv = (mx - mn) * .08, was0 = mn >= 0, wasNeg = mx <= 0; mn -= padv; mx += padv; if (was0 && mn < 0) mn = 0; if (opt.max0 && mx > 0) mx = 0;
   var xs = lines[0].pts.map(function (p) { return V8_dayNum(p[0]); }), x0 = xs[0], x1 = xs[xs.length - 1] || x0 + 1;
   var X = function (d) { return pl + (V8_dayNum(d) - x0) / Math.max(1, x1 - x0) * (W - pl - pr); }, Y = function (v) { return pt + (1 - (v - mn) / (mx - mn)) * (H - pt - pb); };
   var yf = opt.yfmt || (opt.fmt ? function (v) { return opt.fmt(v); } : kfmt), ylab = '';
@@ -353,8 +353,8 @@ function lineChart(id, lines, opt) {
     var svg = document.getElementById(id); if (!svg) return;
     var move = function (ev) { var r = svg.getBoundingClientRect(), t = ev.touches ? ev.touches[0] : ev, fx = Math.max(0, Math.min(1, (t.clientX - r.left) / r.width)), day = x0 + fx * (x1 - x0), L = lines[0].pts, best = 0;
       for (var i = 0; i < L.length; i++) if (V8_dayNum(L[i][0]) <= day) best = i;
-      var c = document.getElementById(id + 'c'); c.setAttribute('x1', X(L[best][0])); c.setAttribute('x2', X(L[best][0])); c.setAttribute('opacity', 1);
-      document.getElementById(id + 't').innerHTML = dshort(L[best][0]) + ' · ' + lines.map(function (l) { var p = l.pts[best]; return p && p[1] !== null ? (opt.fmt || usd)(p[1]) : ''; }).filter(Boolean).join(' / '); };
+      var c = document.getElementById(id + 'c'), cx = opt.tip ? X(new Date(Math.round(day) * 86400000).toISOString().slice(0, 10)) : X(L[best][0]); c.setAttribute('x1', cx); c.setAttribute('x2', cx); c.setAttribute('opacity', 1);
+      document.getElementById(id + 't').innerHTML = opt.tip ? opt.tip(new Date(Math.round(day) * 86400000).toISOString().slice(0, 10)) : dshort(L[best][0]) + ' · ' + lines.map(function (l) { var p = l.pts[best]; return p && p[1] !== null ? (opt.fmt || usd)(p[1]) : ''; }).filter(Boolean).join(' / '); };
     svg.addEventListener('touchmove', move, { passive: true }); svg.addEventListener('touchstart', move, { passive: true }); svg.addEventListener('mousemove', move);
     svg.addEventListener('mouseleave', function () { document.getElementById(id + 'c').setAttribute('opacity', 0); document.getElementById(id + 't').textContent = ''; });
   }, 0);
@@ -485,7 +485,7 @@ function drawHome(o, meta) {
     if (sel) h += '<div class="grid2" style="margin-top:12px"><div class="stat"><div class="k">Return</div><div class="v ' + cls(sel.twrPct) + '">' + pc(sel.twrPct, 1) + '</div><div class="tiny">' + (sel.twrAnnualPct !== null ? pc(sel.twrAnnualPct, 1) + ' a year' : sel.days + ' days: not annualised') + '</div></div><div class="stat"><div class="k">Gain</div><div class="v ' + cls(sel.gainUsd) + '">' + usdS(sel.gainUsd) + '</div><div class="tiny">' + (sel.xirrReliable ? 'XIRR ' + pc(sel.xirrPct, 1) : 'XIRR needs a year') + '</div></div></div>';
     h += '</div>';
     h += '<div class="card"><h3>Since you started</h3>' + kv('Put in (net)', usd(o.netMoneyInUsd)) + kv('Total gain', '<span class="' + cls(o.totalGainUsd) + '">' + usdS(o.totalGainUsd) + '</span>') + kv('Money-weighted (XIRR)', pc(o.xirrPct, 2)) + kv('Time-weighted', pc(o.twrPct, 1) + ' · ' + pc(o.twrAnnualPct, 1) + ' a year') + kv('Unrealised', '<span class="' + cls(o.unrealizedUsd) + '">' + usdS(o.unrealizedUsd) + '</span>') + kv('Realised', '<span class="' + cls(o.realizedUsd) + '">' + usdS(o.realizedUsd) + '</span>') + kv('Income received', usd(o.incomeUsd)) + (o.optionsOtherUsd ? kv('Options and other', '<span class="' + cls(o.optionsOtherUsd) + '">' + usdS(o.optionsOtherUsd) + '</span>') : '') + '</div>';
-    var j = o.journey; if (j) h += journeyCard(j);
+    var j = o.journey; if (j) h += journeyCard(j) + homeCharts(o);
     if (o.loan) h += loanCard(o.loan);
   }
   h += '<div class="card"><h3>Accounts</h3>' + o.accounts.map(function (a) { return '<div class="row"><div class="avatar">' + esc(String(a.broker || '').slice(0, 3).toUpperCase()) + '</div><div class="grow"><div class="t">' + esc(a.broker) + ' · ' + esc(a.currency) + '</div><div class="s">' + esc(a.acct) + '</div></div><div class="r"><div class="t num">' + (a.currency && a.currency !== 'USD' && a.fxPerUsd ? mny((a.investedUsd + a.cashUsd) * a.fxPerUsd, a.currency) + '<div class="usd2">' + usd(a.investedUsd + a.cashUsd) + '</div>' : usd(a.investedUsd + a.cashUsd)) + '</div><div class="s">cash ' + (a.currency && a.currency !== 'USD' && a.fxPerUsd ? mny(a.cashUsd * a.fxPerUsd, a.currency) : usd(a.cashUsd)) + '</div></div></div>'; }).join('') + '</div>';
@@ -1870,6 +1870,81 @@ function rollSave(i, held) {
   var d = RFN.d, o = d.option, c = rollGet(held, i), b = $('#rf_b');
   var p = { option_id: o.id, date: $('#rf_d').value, close_price: $('#rf_cp').value, close_fees: $('#rf_cf').value, strike: c.strike, expiry: c.expiry, price: $('#rf_np').value, fees: $('#rf_nf').value };
   busy(b, true); api('option_roll', p).then(function (r) { closeSheet(); whDone(r); }).catch(function (e) { toast(e.message); busy(b, false); });
+}
+
+/* ---------- Home charts: trajectory to goal, what drove your gains, drawdown ---------- */
+var TRJ = { view: 'value' }, DDN = { range: 'ALL' }, CTB = { period: '1Y', dim: 'region', metric: 'gain', data: {}, busy: false, err: '' };
+function addMonthsIso(iso, n) { var y = +iso.slice(0, 4), m = +iso.slice(5, 7) - 1 + n, d = +iso.slice(8, 10); y += Math.floor(m / 12); m = ((m % 12) + 12) % 12; return y + '-' + ('0' + (m + 1)).slice(-2) + '-' + ('0' + Math.min(d, 28)).slice(-2); }
+function lastAtOrBefore(pts, d) { var best = null; for (var i = 0; i < pts.length; i++) { if (pts[i][0] <= d) best = pts[i]; else break; } return best; }
+function homeCharts(o) {
+  var j = o.journey; if (!j || !j.planSeries || !j.planSeries.length) return '';
+  return trajCard(o, j) + ctbCard() + ddCard(o);
+}
+function trajCard(o, j) {
+  var plan = j.planSeries, series = o.series || [], asOf = o.asOf, val = o.valueUsd, goalDate = j.targetDate, rate = (j.rateUsedPct !== null && j.rateUsedPct !== undefined ? j.rateUsedPct : j.targetCagr) / 100, monthly = j.monthlyPlan || 0;
+  var h = '<div class="card"><h3>Trajectory to ' + usd(j.goal) + '</h3><div class="seg" style="margin-bottom:8px"><button class="' + (TRJ.view === 'value' ? 'on' : '') + '" onclick="TRJ.view=\'value\';drawHome(S.ov)">Value</button><button class="' + (TRJ.view === 'dep' ? 'on' : '') + '" onclick="TRJ.view=\'dep\';drawHome(S.ov)">Money put in</button></div>';
+  if (TRJ.view === 'value') {
+    var planPts = plan.map(function (p) { return [p.d, p.v]; }), act = series.filter(function (r, i) { return i % 4 === 0 || i === series.length - 1; }).map(function (r) { return [r[0], r[1]]; });
+    var proj = [[asOf, val]], pv = val, dd = asOf, mr = Math.pow(1 + rate, 1 / 12), tr = Math.pow(1 + j.targetCagr / 100, 1 / 12), proj2 = [[asOf, val]], pv2 = val;
+    for (var k = 0; k < 400; k++) { dd = addMonthsIso(dd, 1); if (dd > goalDate) break; pv = (pv + monthly) * mr; pv2 = (pv2 + monthly) * tr; proj.push([dd, pv]); proj2.push([dd, pv2]); }
+    var lines = [{ pts: planPts, color: '#C9A227', w: 1.6, dash: true }, { pts: act, color: 'var(--acc)', w: 2, fill: true }, { pts: proj, color: '#4F8FE8', w: 1.8, dash: true }];
+    var tip = function (d) { var pl = lastAtOrBefore(planPts, d), ac = d <= asOf ? lastAtOrBefore(act, d) : null, pj = d > asOf ? lastAtOrBefore(proj, d) : null; return dshort(d) + (pl ? ' · plan ' + usd(pl[1]) : '') + (ac ? ' · you ' + usd(ac[1]) : '') + (pj ? ' · projected ' + usd(pj[1]) : ''); };
+    h += lineChart('ctraj', lines, { marks: [{ v: j.goal }], h: 190, tip: tip, xlabels: [plan[0].d, goalDate] });
+    h += '<div class="legend"><span><i style="background:#C9A227"></i>Plan (' + j.targetCagr + '% a year)</span><span><i style="background:var(--acc)"></i>You</span><span><i style="background:#4F8FE8"></i>From today at ' + pcp(rate * 100, 1) + ' + ' + usd(monthly) + ' a month</span></div>';
+    var gap = j.gapToPlan;
+    h += '<div class="grid2" style="margin-top:10px"><div class="stat"><div class="k">Today vs plan</div><div class="v ' + (gap >= 0 ? 'pos' : 'neg') + '">' + (gap >= 0 ? usd(gap) + ' ahead' : usd(-gap) + ' behind') + '</div><div class="tiny">plan says ' + usd(j.planValueToday) + '</div></div><div class="stat"><div class="k">At ' + dshort(goalDate) + '</div><div class="v ' + (j.projectedAtCurrentRate >= j.goal ? 'pos' : 'neg') + '">' + usd(j.projectedAtCurrentRate) + '</div><div class="tiny">at your return so far · ' + usd(j.projectedAtTargetRate) + ' at ' + j.targetCagr + '%</div></div></div>';
+  } else {
+    var pl2 = plan.map(function (p) { return [p.d, p.c]; }), cum = 0, ix = {}; (o.flows || []).forEach(function (f) { if (f[2] !== 'INCOME_OUT') ix[f[0]] = (ix[f[0]] || 0) - f[1]; });
+    var days = Object.keys(ix).sort(), dep = [[pl2[0][0], 0]]; days.forEach(function (d) { cum += ix[d]; dep.push([d, cum]); }); dep.push([asOf, cum]);
+    var planTo = pl2.filter(function (p) { return p[0] <= asOf; });
+    var lines2 = [{ pts: pl2, color: '#7A7886', w: 1.6, dash: true }, { pts: dep, color: 'var(--acc)', w: 2 }];
+    var tip2 = function (d) { var a = lastAtOrBefore(pl2, d), b = d <= asOf ? lastAtOrBefore(dep, d) : null; return dshort(d) + (a ? ' · plan asked for ' + usd(a[1]) : '') + (b ? ' · you put in ' + usd(b[1]) : ''); };
+    h += lineChart('ctraj', lines2, { h: 190, tip: tip2 });
+    h += '<div class="legend"><span><i style="background:#7A7886"></i>Plan asked for</span><span><i style="background:var(--acc)"></i>You put in (net)</span></div>';
+    var pa = planTo.length ? planTo[planTo.length - 1][1] : 0, g2 = cum - pa;
+    h += '<div class="grid2" style="margin-top:10px"><div class="stat"><div class="k">Put in so far</div><div class="v">' + usd(cum) + '</div><div class="tiny">plan asked for ' + usd(pa) + '</div></div><div class="stat"><div class="k">Difference</div><div class="v ' + (g2 >= 0 ? 'pos' : 'neg') + '">' + (g2 >= 0 ? usd(g2) + ' more' : usd(-g2) + ' less') + '</div><div class="tiny">last 3 months: ' + usd(j.pace3mMonthly) + ' a month</div></div></div>';
+  }
+  return h + '</div>';
+}
+
+/* what drove your gains */
+var CTB_DIMS = [['region', 'Region'], ['sector', 'Sector'], ['group', 'Theme'], ['cap', 'Size'], ['assetClass', 'Class'], ['broker', 'Broker'], ['currency', 'Currency'], ['stock', 'Stock']], CTB_PER = [['3M', '3M'], ['6M', '6M'], ['YTD', 'YTD'], ['1Y', '1Y'], ['3Y', '3Y'], ['5Y', '5Y'], ['ALL', 'Since start']];
+function ctbCard() {
+  if (!isAll()) return '';
+  var d = CTB.data[CTB.period], h = '<div class="card"><h3>What drove your gains</h3><div class="chips">' + CTB_PER.map(function (p) { return '<button class="chip ' + (CTB.period === p[0] ? 'on' : '') + '" onclick="ctbSet(\'period\',\'' + p[0] + '\')">' + p[1] + '</button>'; }).join('') + '</div>'
+    + '<div class="chips">' + CTB_DIMS.map(function (p) { return '<button class="chip ' + (CTB.dim === p[0] ? 'on' : '') + '" onclick="ctbSet(\'dim\',\'' + p[0] + '\')">' + p[1] + '</button>'; }).join('') + '</div>'
+    + '<div class="seg" style="margin:6px 0"><button class="' + (CTB.metric === 'gain' ? 'on' : '') + '" onclick="ctbSet(\'metric\',\'gain\')">Gain in dollars</button><button class="' + (CTB.metric === 'ret' ? 'on' : '') + '" onclick="ctbSet(\'metric\',\'ret\')">Return</button></div>';
+  if (!d) { if (CTB.err) return h + '<div class="empty neg">' + esc(CTB.err) + '</div></div>'; if (!CTB.busy) ctbLoad(); return h + '<div class="empty">Working it out…</div></div>'; }
+  var rows = (d.dims[CTB.dim] || []).slice(), key = CTB.metric === 'gain' ? 'gainUsd' : 'retPct';
+  rows = rows.filter(function (r) { return r[key] !== null && r[key] !== undefined; }).sort(function (a, b) { return Math.abs(b[key]) - Math.abs(a[key]); });
+  var shown = rows.slice(0, 12), rest = rows.slice(12), mx = Math.max.apply(null, shown.map(function (r) { return Math.abs(r[key]); }).concat([1e-9]));
+  h += '<div class="tiny" style="margin-bottom:6px">' + dshort(d.from) + ' to ' + dshort(d.to) + ' · all together <b class="' + cls(d.totalGainUsd) + '">' + usdS(d.totalGainUsd) + '</b>' + (d.retPct !== null ? ' (' + pc(d.retPct, 1) + ' on the money at work)' : '') + '</div>';
+  shown.sort(function (a, b) { return b[key] - a[key]; });
+  shown.forEach(function (r) {
+    var v = r[key], w = Math.min(50, Math.abs(v) / mx * 50), pos = v >= 0;
+    h += '<div style="margin:9px 0"><div style="display:flex;justify-content:space-between" class="sm"><span>' + esc(r.label) + '</span><span class="num ' + cls(v) + '"><b>' + (CTB.metric === 'gain' ? usdS(v) : pc(v, 1)) + '</b> <span class="tiny mut">' + (CTB.metric === 'gain' ? (r.retPct !== null ? pc(r.retPct, 1) : '') : usdS(r.gainUsd)) + '</span></span></div><div style="position:relative;height:8px;background:var(--line);border-radius:4px;margin-top:3px"><i style="position:absolute;top:0;bottom:0;border-radius:4px;' + (pos ? 'left:50%;' : 'right:50%;') + 'width:' + w + '%;background:' + (pos ? 'var(--pos)' : 'var(--neg)') + '"></i><u style="position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--tx3)"></u></div></div>';
+  });
+  if (rest.length) h += '<div class="tiny">+ ' + rest.length + ' smaller: ' + usdS(rest.reduce(function (s, r) { return s + r.gainUsd; }, 0)) + ' together</div>';
+  if (d.otherUsd !== null && d.otherUsd !== undefined && Math.abs(d.otherUsd) >= 1) h += '<div class="tiny" style="margin-top:6px">Interest, fees and currency effects on cash that belong to no stock: ' + usdS(d.otherUsd) + '.</div>';
+  return h + '<div class="note">Gain = value at the end, minus value at the start, minus money put in, plus money taken out (sales, dividends, option premium), for every position you held in the period, sold ones included. Return = gain on the value at the start plus what you added.</div></div>';
+}
+function ctbSet(k, v) { CTB[k] = v; CTB.err = ''; if (S.ov) drawHome(S.ov); }
+function ctbLoad() {
+  var per = CTB.period; CTB.busy = true;
+  api('contrib', { period: per }).then(function (d) { CTB.data[per] = d; CTB.busy = false; if (S.tab === 'home' && !S.stack.length && S.ov) drawHome(S.ov); }).catch(function (e) { CTB.busy = false; CTB.err = e.message; if (S.tab === 'home' && !S.stack.length && S.ov) drawHome(S.ov); });
+}
+
+/* drawdown: how far below the previous high, on the time-weighted index so deposits do not distort it */
+function ddCard(o) {
+  var s = o.series || []; if (s.length < 20) return '';
+  var from = DDN.range === 'ALL' ? s[0][0] : V8_addDays(o.asOf, DDN.range === '1Y' ? -365 : -1096), sub = s.filter(function (r) { return r[0] >= from; }); if (sub.length < 5) return '';
+  var peak = -1, peakD = '', pts = [], worst = 0, worstD = '', worstPeakD = '', curPeakD = '';
+  sub.forEach(function (r) { if (r[2] > peak) { peak = r[2]; peakD = r[0]; } var dd = (r[2] / peak - 1) * 100; pts.push([r[0], dd]); if (dd < worst) { worst = dd; worstD = r[0]; worstPeakD = peakD; } });
+  var cur = pts[pts.length - 1][1], recovered = null; if (worst < 0) { var pk = null; sub.forEach(function (r) { if (r[0] === worstPeakD) pk = r[2]; }); for (var i = 0; i < sub.length; i++) { if (sub[i][0] > worstD && sub[i][2] >= pk) { recovered = sub[i][0]; break; } } }
+  var h = '<div class="card"><h3>Drawdown</h3><div class="chips">' + [['1Y', '1Y'], ['3Y', '3Y'], ['ALL', 'Since start']].map(function (p) { return '<button class="chip ' + (DDN.range === p[0] ? 'on' : '') + '" onclick="DDN.range=\'' + p[0] + '\';drawHome(S.ov)">' + p[1] + '</button>'; }).join('') + '</div>';
+  h += lineChart('cdd', [{ pts: pts, color: 'var(--neg)', w: 1.8, fill: true }], { h: 150, fmt: function (v) { return pc(v, 1); }, yfmt: function (v) { return pc(v, 0); }, max0: true });
+  h += '<div class="grid2" style="margin-top:10px"><div class="stat"><div class="k">Now</div><div class="v ' + (cur < -0.05 ? 'neg' : 'pos') + '">' + (cur > -0.05 ? 'at a high' : pc(cur, 1) + ' below the high') + '</div><div class="tiny">best point ' + dshort(peakD) + '</div></div><div class="stat"><div class="k">Worst fall</div><div class="v neg">' + pc(worst, 1) + '</div><div class="tiny">' + (worst < 0 ? dshort(worstPeakD) + ' to ' + dshort(worstD) + (recovered ? ' · back by ' + dshort(recovered) : ' · not yet recovered') : 'none') + '</div></div></div>';
+  return h + '<div class="note">How far your portfolio sat below its own previous high, ignoring deposits and withdrawals.</div></div>';
 }
 
 </script>
