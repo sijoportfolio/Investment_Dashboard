@@ -813,7 +813,7 @@ function stressTab(d) {
 SCREENS.more = function () {
   setTop('More', '', false, '');
   var full = isAll(), it = function (ic, t, s, fn, show) { return show === false ? '' : '<div class="row tap" onclick="' + fn + '"><div class="avatar" style="font-size:18px">' + ic + '</div><div class="grow"><div class="t">' + t + '</div><div class="s">' + s + '</div></div><span class="mut">›</span></div>'; };
-  var html = '<div class="card" style="padding:4px 16px">' + it('➕', 'Add entry', 'Buy, sell, deposit, withdrawal, transfer, dividend, interest, fee, option', 'addEntry()', can('trade_entry')) + it('💰', 'Cash', 'Balance per account and latest movements', "push('cash')", scr('holdings')) + it('↔️', 'Transactions', 'Every ledger entry', "push('tx')", scr('transactions')) + it('💵', 'Income', 'Dividends and interest', "push('income')", scr('income')) + it('🎯', 'Plan & risk', 'Goal, risk, stress tests', "go('plan')", full && scr('plan')) + it('🧾', 'Tax', 'Gains, estimate, harvesting, estate', "push('tax')", full && scr('plan')) + it('📈', 'Options', 'What to do with each open option', "push('options')", full && scr('options')) + '</div>'
+  var html = '<div class="card" style="padding:4px 16px">' + it('➕', 'Add entry', 'Buy, sell, deposit, withdrawal, transfer, dividend, interest, fee, option', 'addEntry()', can('trade_entry')) + it('💰', 'Cash', 'Balance per account and latest movements', "push('cash')", scr('holdings')) + it('↔️', 'Transactions', 'Every ledger entry', "push('tx')", scr('transactions')) + it('💵', 'Income', 'Dividends and interest', "push('income')", scr('income')) + it('🎯', 'Plan & risk', 'Goal, risk, stress tests', "go('plan')", full && scr('plan')) + it('🧾', 'Tax', 'Gains, estimate, harvesting, estate', "push('tax')", full && scr('plan')) + it('📈', 'Options', 'What to do with each open option', "push('options')", full && scr('options')) + it('⚖️', 'Rebalance', 'Targets, this month\'s money, sells', "push('rebal')", full && scr('plan')) + it('🌱', 'India harvest', 'Free tax threshold, loss selling, exits', "push('harvest')", full && scr('plan')) + it('🔬', 'Thesis', 'Claims, tripwires, analysts, research', "push('thesis')", full && scr('plan')) + '</div>'
     + '<div class="card" style="padding:4px 16px">' + it('🏷️', 'Prices', 'Health of every price, enter one by hand', "push('prices')", can('prices')) + it('✅', 'Trade check', 'Ledger vs market data', "push('review')", can('review')) + it('👪', 'People & shares', 'Children\'s accounts and shares of your holdings', "push('people')", full && can('settings')) + it('📄', 'Reports', 'PDF or Excel for any view', "push('reports')", scr('reports')) + '</div>'
     + '<div class="card" style="padding:4px 16px">' + it('⚙️', 'Settings', 'Limits, targets, tax rules, sleeves', "push('settings')", can('settings')) + it('🔑', 'Access keys', 'Who can open this app', "push('keys')", can('keys')) + it('🛠️', 'Owner tools', 'Refresh now, rebuild history', "push('tools')", can('owner_jobs')) + it('👤', 'This device', 'Face ID or fingerprint, your key, theme', "push('account')") + '</div>'
     + '<div class="note" style="text-align:center">Portfolio v8 · data as of ' + (S.ov ? dshort(S.ov.asOf) : '') + '</div>';
@@ -1946,6 +1946,194 @@ function ddCard(o) {
   h += '<div class="grid2" style="margin-top:10px"><div class="stat"><div class="k">Now</div><div class="v ' + (cur < -0.05 ? 'neg' : 'pos') + '">' + (cur > -0.05 ? 'at a high' : pc(cur, 1) + ' below the high') + '</div><div class="tiny">best point ' + dshort(peakD) + '</div></div><div class="stat"><div class="k">Worst fall</div><div class="v neg">' + pc(worst, 1) + '</div><div class="tiny">' + (worst < 0 ? dshort(worstPeakD) + ' to ' + dshort(worstD) + (recovered ? ' · back by ' + dshort(recovered) : ' · not yet recovered') : 'none') + '</div></div></div>';
   return h + '<div class="note">How far your portfolio sat below its own previous high, ignoring deposits and withdrawals.</div></div>';
 }
+
+/* ---------- Rebalance, Harvest and Thesis screens (More > Plan section) ---------- */
+var RB = { d: null }, HV = { d: null }, TH = { d: null, id: null, s: null, draft: null, prompt: '' };
+function inrS(n) { return n === null || n === undefined || isNaN(n) ? '–' : 'INR ' + Number(n).toLocaleString('en-IN', { maximumFractionDigits: 0 }); }
+function badgeFor(st) { return st === 'BROKEN' ? 'RED' : st === 'WATCH' ? 'WARN' : st === 'INTACT' ? 'OK' : ''; }
+function planDone(r) { toast(r.message); clearCache(); S.force = true; }
+
+/* ===== Rebalance ===== */
+SCREENS.rebal = function () {
+  setTop('Rebalance', 'Targets, this month\'s money, sells', true, refreshBtn());
+  if (!isAll()) { $('#main').innerHTML = '<div class="empty">Rebalancing is for the owner.</div>'; return; }
+  load('rebalance', {}, function (d) { RB.d = d; drawRebal(d); }, S.force); S.force = false;
+};
+function rbBar(m) {
+  var mx = Math.max(100, m.actualPct + 5, m.targetPct + m.bandPct + 5), a = m.actualPct / mx * 100, t = m.targetPct / mx * 100, lo = Math.max(0, (m.targetPct - m.bandPct) / mx * 100), hi = (m.targetPct + m.bandPct) / mx * 100;
+  var col = m.status === 'ON' ? 'var(--acc)' : m.status === 'RUN_OFF' ? 'var(--info)' : 'var(--warn)';
+  return '<div style="position:relative;height:10px;border-radius:5px;background:var(--card2);margin:8px 0 4px"><div style="position:absolute;left:' + lo + '%;width:' + Math.max(0, hi - lo) + '%;top:0;bottom:0;background:rgba(127,127,127,.22);border-radius:5px"></div><div style="position:absolute;left:0;width:' + a + '%;top:2px;bottom:2px;background:' + col + ';border-radius:4px"></div><div style="position:absolute;left:' + t + '%;top:-3px;bottom:-3px;width:2px;background:var(--tx)"></div></div>';
+}
+function drawRebal(d) {
+  var h = '';
+  if (d.empty) { $('#main').innerHTML = '<div class="empty">No targets yet. Run the dashboard setup from the Sheet menu (Portfolio v8 > Dashboard setup).</div>'; return; }
+  if (d.review.due) h += '<div class="banner"><div><b>Your review is due</b> · ' + (d.review.last ? 'last done ' + dshort(d.review.last) : 'none done yet') + '. Look at the options below and confirm what you chose.</div></div>';
+  else h += '<div class="note" style="margin:0 4px 10px">Last review ' + dshort(d.review.last) + ' · next ' + dshort(d.review.next) + ' (every ' + d.review.months + ' months).</div>';
+  h += '<div class="card"><h3>Target against actual</h3><div class="tiny" style="margin-bottom:4px">Share of invested money (' + usd(d.investedUsd) + '). The line is the target, the grey band is the allowed drift.</div>';
+  d.rows.forEach(function (m) {
+    var st = m.status === 'ON' ? '<span class="badge OK">on target</span>' : m.status === 'OVER' ? '<span class="badge WARN">over</span>' : m.status === 'UNDER' ? '<span class="badge WARN">under</span>' : '<span class="badge MANUAL">no new money</span>';
+    var extra = m.rule === 'NO_ADD' ? (m.runOff ? (m.runOff.months === 0 ? 'At or below target.' : 'Falls to ' + pcp(m.targetPct, 0) + ' by about ' + dshort(m.runOff.date) + ' with all new money elsewhere.') : 'Will take more than 30 years to reach target at the plan growth.') : (m.status === 'UNDER' ? usd(m.toTargetUsd) + ' short' + (m.monthsToFix ? ' · about ' + m.monthsToFix + ' months of new money' : '') : m.status === 'OVER' ? usd(-m.toTargetUsd) + ' over' + (m.monthsToFix ? ' · back inside the band in about ' + m.monthsToFix + ' months by dilution' : '') : '');
+    h += '<div style="margin:12px 0"><div style="display:flex;justify-content:space-between;gap:8px"><div><b>' + esc(m.member) + '</b> <span class="tiny">' + (m.dim === 'SECTOR_GROUP' ? 'theme' : 'region') + '</span> ' + st + '</div><div class="num"><b>' + pcp(m.actualPct, 1) + '</b> <span class="tiny mut">of ' + pcp(m.targetPct, 0) + ' · ' + (m.driftPts > 0 ? '+' : '') + m.driftPts + ' pts</span></div></div>' + rbBar(m) + (extra ? '<div class="tiny">' + esc(extra) + '</div>' : '') + '</div>';
+  });
+  h += '</div>';
+  /* this month's money */
+  var o = d.options, mo = d.monthlyUsd;
+  h += '<div class="card"><h3>This month\'s ' + usd(mo) + '</h3><div class="tiny" style="margin-bottom:8px">Three ways to use it. You do not have to invest every month' + (d.waitedUsd ? ' · ' + usd(d.waitedUsd) + ' is already waiting from earlier months' : '') + '.</div>';
+  if (o.fill) h += '<div class="card" style="margin:8px 0;background:var(--card2)"><b>Fill the most underweight: ' + esc(o.fill.member) + '</b> <span class="tiny">(' + o.fill.driftPts + ' pts from target)</span>' + (o.fill.picks.length ? o.fill.picks.map(function (p) { return kv(esc(p.asset) + ' <span class="tiny">' + esc(p.name || '') + ' · score ' + p.score + '</span>', usd(p.amountUsd)); }).join('') : '<div class="tiny">' + esc(o.fill.note) + '</div>') + (can('review') ? '<div class="btns"><button class="btn sm" onclick="rbChoose(\'FILL\')">I will do this</button></div>' : '') + '</div>';
+  if (o.concentrate) { var c = o.concentrate; h += '<div class="card" style="margin:8px 0;background:var(--card2)"><b>Concentrate on ' + esc(c.asset) + '</b> <span class="badge OK">score ' + c.score + '</span><div class="tiny">' + esc(c.name || '') + ' · ' + Object.keys(c.parts).map(function (k) { return esc(k) + ' ' + c.parts[k]; }).join(' · ') + '</div>' + kv('Amount (this month' + (c.includesWaited ? ' + waiting money' : '') + ')', usd(c.amountUsd)) + '<div class="tiny">Limited to ' + usd(c.capUsd) + ' in one buy. Position and theme limits still apply.</div>' + (can('review') ? '<div class="btns"><button class="btn sm" onclick="rbChoose(\'CONCENTRATE\')">I will do this</button></div>' : '') + '</div>'; }
+  else h += '<div class="tiny" style="margin:6px 0">No stock scores ' + o.compellingScore + ' or more with an intact thesis, so nothing is compelling enough to concentrate on right now.</div>';
+  h += '<div class="card" style="margin:8px 0;background:var(--card2)"><b>Wait</b><div class="tiny">' + esc(o.wait.cashNote) + '</div>' + (can('review') ? '<div class="btns"><button class="btn ghost sm" onclick="rbChoose(\'WAIT\')">Wait this month</button></div>' : '') + '</div></div>';
+  /* opportunities */
+  if (d.opps.length) h += '<div class="card"><h3>Best opportunities now</h3><div class="tiny" style="margin-bottom:4px">Thesis intact only. Score 0 to 100 from your entry zone, upside, conviction, distance below the high and the 200-day average, analyst rating and P/E against its own history. India is left out: it gets no new money.</div>' + d.opps.map(function (x) { return '<div class="row"><div class="avatar" style="font-size:11px">' + esc(x.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(x.asset) + (x.held ? '' : ' <span class="badge MANUAL">not held</span>') + (x.overGroup ? ' <span class="badge WARN">theme over target</span>' : '') + (x.onWheel ? ' <span class="badge">wheel</span>' : '') + '</div><div class="s">' + esc(x.region) + ' · ' + esc(x.group) + (x.zone ? ' · ' + esc(x.zone) : '') + '</div></div><div class="r"><div class="t num"><b>' + x.score + '</b></div></div></div>'; }).join('') + '</div>';
+  /* sells */
+  var hasSell = (d.sells && d.sells.length) || (d.thesisSells && d.thesisSells.length);
+  h += '<div class="card"><h3>Sell suggestions</h3>';
+  if (!hasSell) h += '<div class="tiny">None. No group is beyond its band with no way back, and no confirmed thesis problem sits outside India.</div>';
+  (d.sells || []).forEach(function (s) { h += '<div style="margin:8px 0"><b>' + esc(s.member) + '</b> <span class="tiny">' + usd(s.excessUsd) + ' above its band' + (s.monthsToFix ? ', dilution alone needs ' + s.monthsToFix + ' months' : '') + '</span>' + s.lines.map(function (l) { return kv(esc(l.asset) + ' <span class="tiny">' + esc(l.acct) + ' · ' + l.pctOfPosition + '% of it · gain ' + usd(l.gainUsd) + ' · fee about ' + usd(l.feeUsd, 2) + '</span>', usd(l.sellUsd)); }).join('') + '<div class="tiny">' + esc(s.taxNote) + '</div></div>'; });
+  (d.thesisSells || []).forEach(function (s) { h += '<div style="margin:8px 0"><b>' + esc(s.asset) + '</b> <span class="badge ' + badgeFor(s.status) + '">' + (s.segment && s.status !== 'BROKEN' ? 'segment issue' : esc(s.status)) + '</span>' + (s.wheel ? ' <span class="badge">wheel</span>' : '') + kv(esc(s.acct) + ' <span class="tiny">gain ' + usd(s.gainUsd) + ' · fee about ' + usd(s.feeUsd, 2) + '</span>', usd(s.sellUsd)) + '<div class="tiny">' + esc(s.reason) + '</div><div class="tiny">' + esc(s.note) + '</div></div>'; });
+  h += '<div class="note">India sells (thesis, loss and tax) are in Harvest. Nothing is sold for you.</div></div>';
+  h += '<div class="btns" style="margin:0 0 10px"><button class="btn ghost sm" onclick="push(\'harvest\')">India tax harvest</button><button class="btn ghost sm" onclick="push(\'thesis\')">Thesis checks</button></div>';
+  if (d.history && d.history.length) h += '<div class="card"><h3>Past reviews</h3>' + d.history.map(function (r) { return '<div class="row"><div class="grow"><div class="t">' + esc(r.choice) + (r.asset ? ' ' + esc(r.asset) : '') + '</div><div class="s">' + dshort(r.date) + (r.amount ? ' · ' + usd(r.amount) : '') + ' · ' + esc(r.by || '') + '</div></div></div>'; }).join('') + '</div>';
+  $('#main').innerHTML = h;
+}
+function rbChoose(choice) {
+  var d = RB.d, o = d.options, asset = '', amt = d.monthlyUsd, txt = '';
+  if (choice === 'FILL') { asset = o.fill && o.fill.picks.length ? o.fill.picks.map(function (p) { return p.asset; }).join('+') : ''; txt = 'Fill ' + (o.fill ? o.fill.member : ''); }
+  if (choice === 'CONCENTRATE') { asset = o.concentrate.asset; amt = o.concentrate.amountUsd; txt = 'Concentrate on ' + asset; }
+  if (choice === 'WAIT') txt = 'Wait this month';
+  sheet('<h2>' + esc(txt) + '</h2><div class="tiny" style="margin:-6px 0 12px">This only records your choice. Nothing is bought or sold. After you trade, add it with Add entry.</div><label class="field"><span>Amount (USD)</span><input id="rba" inputmode="decimal" value="' + amt + '"></label><label class="field"><span>Note (optional)</span><input id="rbn"></label><div class="btns"><button class="btn" id="rbb" onclick="rbGo(\'' + choice + '\',\'' + esc(asset) + '\')">Confirm</button></div>');
+}
+function rbGo(choice, asset) { var b = $('#rbb'); busy(b, true); api('rebalance_confirm', { choice: choice, asset: asset, amount: $('#rba').value, note: $('#rbn').value }).then(function (r) { closeSheet(); planDone(r); SCREENS.rebal(); }).catch(function (e) { busy(b, false); toast(e.message); }); }
+
+/* ===== Harvest ===== */
+SCREENS.harvest = function () {
+  setTop('India harvest', 'Zerodha and AngelOne together', true, refreshBtn());
+  if (!isAll()) { $('#main').innerHTML = '<div class="empty">This screen is for the owner.</div>'; return; }
+  load('harvest', {}, function (d) { HV.d = d; drawHarvest(d); }, S.force); S.force = false;
+};
+function hvBtns(kind, i) { return can('review') ? '<div class="btns"><button class="btn sm" onclick="hvAct(\'' + kind + '\',' + i + ',\'DONE\')">I did this</button><button class="btn ghost sm" onclick="hvAct(\'' + kind + '\',' + i + ',\'SKIP\')">Skip</button></div>' : ''; }
+function drawHarvest(d) {
+  var h = '', s = d.soFar, ap = d.afterPlan, usedPct = Math.min(100, s.exemptionUsedInr / d.exemptionInr * 100);
+  h += '<div class="card"><h3>' + esc(d.label) + ' · ' + d.daysToFyEnd + ' days left</h3><div class="tiny">Free long-term gain threshold per year: ' + inrS(d.exemptionInr) + ' (one counter for both brokers)</div><div class="bar" style="margin:8px 0"><i style="width:' + usedPct + '%"></i></div>' + kv('Long-term gains so far', inrS(s.ltGainInr)) + kv('Short-term gains so far', inrS(s.stGainInr)) + (s.carryStInr || s.carryLtInr ? kv('Losses carried in', inrS(s.carryStInr + s.carryLtInr)) : '') + kv('Free threshold left today', '<b class="pos">' + inrS(s.headroomNowInr) + '</b>') + kv('Estimated tax so far', inrS(s.taxEstimateInr)) + '</div>';
+  /* gain */
+  h += '<div class="card"><h3>Use the free threshold</h3><div class="tiny" style="margin-bottom:6px">Sell long-held shares, oldest first, and buy the same shares back. The gain is inside the free threshold, so there is no tax now and your cost goes up.</div>';
+  if (!d.gain.length) h += '<div class="tiny">Nothing to harvest: no holding has a long-term gain big enough, or the threshold is already used.</div>';
+  d.gain.forEach(function (x, i) { h += '<div style="margin:10px 0"><div><b>' + esc(x.asset) + '</b> <span class="tiny">' + esc(x.broker) + '</span> ' + (x.worth ? '<span class="badge OK">worth it</span>' : '<span class="badge WARN">small</span>') + (x.thesis && x.thesis !== 'INTACT' ? ' <span class="badge ' + badgeFor(x.thesis) + '">' + esc(x.thesis) + '</span>' : '') + '</div>' + kv('Sell and buy back', num(x.sellQty, 0) + ' of ' + num(x.ofQty, 0) + ' (' + x.sellPct + '%)') + kv('Gain made tax-free', inrS(x.gainInr)) + kv('Trading cost (about)', inrS(x.costInr)) + kv('Tax cut on a later sale (about)', inrS(x.futureTaxCutInr)) + '<div class="tiny">' + esc(x.why) + '</div>' + hvBtns('gain', i) + '</div>'; });
+  if (d.gain.length) h += '<div class="tiny">After this plan: ' + inrS(ap.headroomLeftInr) + ' of the threshold is still unused.</div>';
+  h += '</div>';
+  /* loss */
+  h += '<div class="card"><h3>Sell at a loss to cut tax</h3><div class="tiny" style="margin-bottom:6px">Checked against this year\'s gains. It picks the share to sell that saves the most tax after costs.</div>';
+  if (!d.loss.length) h += '<div class="tiny">Nothing right now. Selling a loser only saves tax when there are taxable gains this year to offset (gains above the free threshold, or short-term gains). It is checked every night.</div>';
+  d.loss.forEach(function (x, i) { h += '<div style="margin:10px 0"><div><b>' + esc(x.asset) + '</b> <span class="tiny">' + esc(x.broker) + '</span> <span class="badge OK">saves ' + inrS(x.savingInr) + '</span></div>' + kv('Sell', num(x.sellQty, 0) + ' of ' + num(x.ofQty, 0) + ' (' + x.sellPct + '%)') + kv('Loss realised', inrS(x.realisedInr)) + kv('Tax saved this year', inrS(x.savingInr)) + kv('Trading cost (about)', inrS(x.costInr)) + '<div class="tiny">' + esc(x.why) + ' Afterwards: ' + (x.next === 'REBUY' ? 'buy it back if you still like it.' : 'rotate the money or buy back; the thesis is on Watch.') + '</div>' + hvBtns('loss', i) + '</div>'; });
+  if (d.carry.length) h += '<div style="margin-top:10px"><b>Losses with nothing to offset yet</b><div class="tiny">Selling these now would only carry the loss forward (up to 8 years). Worth it only if you want out of the stock.</div>' + d.carry.map(function (x) { return kv(esc(x.asset) + ' <span class="tiny">' + esc(x.broker) + '</span>', '−' + inrS(x.lossInr)); }).join('') + '</div>';
+  h += '</div>';
+  /* exits */
+  h += '<div class="card"><h3>Exits: thesis broken or a segment problem</h3>';
+  if (!d.exits.length) h += '<div class="tiny">None. ' + (d.thesisOn ? 'No India stock is confirmed as Broken or flagged with a segment issue.' : 'Set a thesis status in More > Thesis and exits will appear here, with the tax cost.') + '</div>';
+  d.exits.forEach(function (x, i) { h += '<div style="margin:10px 0"><div><b>' + esc(x.asset) + '</b> <span class="tiny">' + esc(x.broker) + '</span> <span class="badge ' + badgeFor(x.status) + '">' + (x.segment && x.status !== 'BROKEN' ? 'segment issue' : esc(x.status)) + '</span></div>' + kv('Sell all', num(x.sellQty, 0) + ' shares') + kv('Realised', inrS(x.realisedInr)) + kv('Tax effect this year', x.taxCostInr > 0 ? '<span class="neg">' + inrS(x.taxCostInr) + '</span>' : '<span class="pos">no tax</span>') + '<div class="tiny">' + esc(x.why) + '</div>' + (x.wait ? '<div class="tiny" style="margin-top:4px">' + esc(x.wait.note) + '</div>' : '') + hvBtns('exit', i) + '</div>'; });
+  h += '</div>';
+  /* rotation */
+  h += '<div class="card"><h3>Where money from a sale can go</h3><div class="tiny" style="margin-bottom:4px">India only, so no new money enters India. Either broker, whichever holds the cash. Thesis intact, best score first.</div>' + (d.rotate.length ? d.rotate.map(function (x) { return '<div class="row"><div class="avatar" style="font-size:11px">' + esc(x.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(x.asset) + (x.held ? '' : ' <span class="badge MANUAL">not held</span>') + '</div><div class="s">' + esc(x.group || '') + (x.zone ? ' · ' + esc(x.zone) : '') + (x.upsidePct !== null && x.upsidePct !== undefined ? ' · upside ' + pc(x.upsidePct, 0) : '') + '</div></div><div class="r"><div class="t num"><b>' + x.score + '</b></div></div></div>'; }).join('') : '<div class="tiny">No India candidate has a price and an intact thesis right now.</div>') + '</div>';
+  h += '<div class="card"><h3>Good to know</h3>' + d.notes.map(function (n) { return '<div class="tiny" style="margin:4px 0">' + esc(n) + '</div>'; }).join('') + '<div class="tiny" style="margin-top:4px">Rates used: short-term ' + d.rates.stPct + '%, long-term ' + d.rates.ltPct + '%, plus ' + d.rates.cessPct + '% cess.</div></div>';
+  $('#main').innerHTML = h;
+}
+function hvAct(kind, i, choice) {
+  var d = HV.d, x = kind === 'gain' ? d.gain[i] : kind === 'loss' ? d.loss[i] : d.exits[i], k = kind === 'gain' ? 'HARVEST_GAIN' : kind === 'loss' ? 'HARVEST_LOSS' : 'EXIT', amt = x.proceedsInr && d.fxInrPerUsd ? Math.round(x.proceedsInr / d.fxInrPerUsd) : 0;
+  api('harvest_confirm', { kind: k, choice: choice, asset: x.asset, acct: x.acct, amount: amt, note: (kind === 'gain' ? 'sell ' + x.sellQty + ' and buy back' : kind === 'loss' ? 'sell ' + x.sellQty : 'sell all ' + x.sellQty) }).then(function (r) { planDone(r); SCREENS.harvest(); }).catch(function (e) { toast(e.message); });
+}
+
+/* ===== Thesis ===== */
+SCREENS.thesis = function () {
+  setTop('Thesis', 'Claims, tripwires, research', true, refreshBtn());
+  if (!isAll()) { $('#main').innerHTML = '<div class="empty">This screen is for the owner.</div>'; return; }
+  load('thesis', {}, function (d) { TH.d = d; drawThesis(d); }, S.force); S.force = false;
+};
+function thStatusLine(s) {
+  var c = s.claimCounts; return s.claims.length ? (c.broken ? '<span class="neg">' + c.broken + ' broken</span> · ' : '') + (c.weak ? c.weak + ' weakening · ' : '') + c.held + ' holding' + (c.unknown ? ' · ' + c.unknown + ' unknown' : '') : 'no claims yet';
+}
+function drawThesis(d) {
+  var a = d.ai, h = '<div class="card"><h3>Research assistant</h3>' + kv('Write briefs in the app', a.hasKey ? '<span class="pos">key set</span>' : '<span class="mut">no key</span>') + (a.hasKey ? kv('Spent this month (estimate)', '$' + a.spentUsd + ' of $' + a.capUsd) + kv('Automatic briefs', a.auto ? 'on' : 'off') : '') + '<div class="tiny">' + (a.hasKey ? 'Model ' + esc(a.model) + (a.webSearch ? ', with web search' : '') + '.' : 'Without a key, every stock has a "Copy question" button: paste it into Claude and paste the answer back. To add a key: Sheet menu, Portfolio v8, Set research AI key.') + '</div></div>';
+  h += '<div class="grid2"><div class="stat"><div class="k">Intact</div><div class="v pos">' + d.counts.intact + '</div></div><div class="stat"><div class="k">Watch / Broken</div><div class="v ' + (d.counts.watch + d.counts.broken ? 'neg' : '') + '">' + d.counts.watch + ' / ' + d.counts.broken + '</div></div></div>';
+  if (d.counts.proposals) h += '<div class="banner"><div><b>' + d.counts.proposals + ' proposed change' + (d.counts.proposals === 1 ? '' : 's') + '</b> waiting for you to confirm or dismiss.</div></div>';
+  if (d.counts.noClaims) h += '<div class="note" style="margin:0 4px 10px">' + d.counts.noClaims + ' holdings have no claims yet. Tap one to add claims you can check.</div>';
+  h += '<div class="card" style="padding:4px 16px">' + d.rows.map(function (s) {
+    return '<div class="row tap" onclick="push(\'thstock\',\'' + esc(s.asset) + '\')"><div class="avatar" style="font-size:11px">' + esc(s.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(s.asset) + ' <span class="badge ' + badgeFor(s.status) + '">' + s.status + '</span>' + (s.segment ? ' <span class="badge WARN">segment</span>' : '') + (s.proposed ? ' <span class="badge MANUAL">proposed ' + s.proposed.status + '</span>' : '') + '</div><div class="s" style="white-space:normal">' + thStatusLine(s) + (s.rating ? ' · analysts ' + num(s.rating, 1) + '/5' : '') + (s.nextEarnings ? ' · earnings ' + dshort(s.nextEarnings) : '') + (s.dataOld ? ' · <span class="neg">no fresh Yahoo data</span>' : '') + '</div></div><span class="mut">›</span></div>';
+  }).join('') + '</div><div class="note">Each night the app reads Yahoo, checks your claims and the price, and may propose a change. Nothing changes until you confirm. Sells use the confirmed status.</div>';
+  $('#main').innerHTML = h;
+}
+SCREENS.thstock = function (id) {
+  TH.id = id || TH.id; setTop(TH.id, 'Thesis', true, refreshBtn());
+  load('thesis_stock', { asset: TH.id }, function (s) { TH.s = s; drawThStock(s); }, S.force); S.force = false;
+};
+function thRes(r) { return r === 'HELD' ? '<span class="badge OK">holds</span>' : r === 'WEAKENING' ? '<span class="badge WARN">weakening</span>' : r === 'BROKEN' ? '<span class="badge RED">broken</span>' : '<span class="badge">unknown</span>'; }
+function drawThStock(s) {
+  var h = '<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><div><b style="font-size:18px">' + esc(s.name) + '</b><div class="tiny">' + esc(s.asset) + (s.held ? ' · held ' + usd(s.valueUsd) : ' · not held') + (s.price !== null ? ' · ' + num(s.price, 2) : '') + '</div></div><div><span class="badge ' + badgeFor(s.status) + '" style="font-size:14px">' + s.status + '</span>' + (s.segment ? '<br><span class="badge WARN">segment issue</span>' : '') + '</div></div>' + (s.reason ? '<div class="tiny" style="margin-top:6px">' + esc(s.reason) + (s.setOn ? ' (' + dshort(s.setOn) + ')' : '') + '</div>' : '');
+  if (s.proposed) h += '<div class="card alert WARN" style="margin:10px 0 0"><b>Proposed: ' + s.proposed.status + '</b> <span class="tiny">' + (s.proposed.by === 'check' ? 'nightly check' : s.proposed.by === 'ai' ? 'AI brief' : s.proposed.by === 'paste' ? 'pasted brief' : '') + (s.proposed.on ? ' · ' + dshort(s.proposed.on) : '') + '</span><div class="tiny">' + esc(s.proposed.reason) + '</div>' + (can('review') ? '<div class="btns"><button class="btn sm" onclick="thAccept()">Confirm ' + s.proposed.status + '</button><button class="btn ghost sm" onclick="thDismiss()">Dismiss</button></div>' : '') + '</div>';
+  if (can('review')) h += '<div class="btns"><button class="btn ghost sm" onclick="thSetSheet()">Set status</button></div>';
+  h += '</div>';
+  /* claims */
+  h += '<div class="card"><h3>Claims</h3>' + (s.claims.length ? s.claims.map(function (c) { return '<div class="row"><div class="grow"><div class="t" style="white-space:normal">' + esc(c.claim) + '</div><div class="s">' + esc(c.metric) + ' ' + esc(c.op) + ' ' + c.threshold + ' · now ' + (c.value === null ? 'unknown' : c.value) + (c.source === 'AI' ? ' · drafted by AI' : '') + '</div></div><div class="r">' + thRes(c.result) + (can('settings') ? '<div><button class="btn ghost sm" style="margin-top:4px" onclick="thClaimDel(' + c.row + ')">Remove</button></div>' : '') + '</div></div>'; }).join('') : '<div class="tiny">No claims yet. A claim is something that must stay true, for example "operating margin stays above 30".</div>');
+  if (can('settings')) h += '<div class="btns"><button class="btn ghost sm" onclick="thClaimSheet()">+ Add claim</button>' + (s.ai.hasKey && can('review') ? '<button class="btn ghost sm" id="thdr" onclick="thDraft()">Draft with AI</button>' : '') + '</div>';
+  if (s.journal && s.journal.thesis) h += '<div class="tiny" style="margin-top:8px"><b>Your thesis:</b> ' + esc(s.journal.thesis) + '</div>';
+  h += '</div>';
+  /* Yahoo */
+  h += '<div class="card"><h3>Analysts and news (Yahoo)</h3><div class="tiny">' + (s.dataDate ? 'Read ' + dshort(s.dataDate) + (s.dataOld ? ' · <span class="neg">old, claims on company facts are not judged</span>' : '') : 'Not read yet') + '</div>';
+  if (s.trend) { var t = s.trend, tot = t.strongBuy + t.buy + t.hold + t.sell + t.strongSell || 1; h += '<div style="display:flex;height:10px;border-radius:5px;overflow:hidden;margin:8px 0"><i style="width:' + (t.strongBuy + t.buy) / tot * 100 + '%;background:var(--pos)"></i><i style="width:' + t.hold / tot * 100 + '%;background:var(--warn)"></i><i style="width:' + (t.sell + t.strongSell) / tot * 100 + '%;background:var(--neg)"></i></div><div class="tiny">Buy ' + (t.strongBuy + t.buy) + ' · Hold ' + t.hold + ' · Sell ' + (t.sell + t.strongSell) + (s.rating ? ' · average ' + num(s.rating, 1) + ' of 5 (1 = strong buy)' : '') + '</div>'; }
+  if (s.targets && s.targets.mean) h += kv('Analyst target', num(s.targets.mean, 0) + ' <span class="tiny">(' + num(s.targets.low, 0) + ' – ' + num(s.targets.high, 0) + ')</span>');
+  if (s.nextEarnings || s.lastEarnings) h += kv('Earnings', s.nextEarnings ? 'next ' + dshort(s.nextEarnings) : 'reported ' + dshort(s.lastEarnings));
+  if (s.actions && s.actions.length) h += '<div style="margin-top:8px"><b class="sm">Recent rating changes</b>' + s.actions.map(function (x) { return '<div class="tiny">' + dshort(x.d) + ' · ' + esc(x.firm) + ' · ' + esc(x.act) + ' ' + esc(x.from ? x.from + ' → ' : '') + esc(x.to) + '</div>'; }).join('') + '</div>';
+  if (s.news && s.news.length) h += '<div style="margin-top:8px"><b class="sm">Headlines</b>' + s.news.map(function (n) { return '<div class="tiny" style="margin:3px 0">' + dshort(n.time) + ' · ' + esc(n.p) + ' · ' + (n.link ? '<a href="' + esc(n.link) + '" target="_blank" rel="noopener">' + esc(n.t) + '</a>' : esc(n.t)) + '</div>'; }).join('') + '</div>';
+  if (can('review')) h += '<div class="btns"><button class="btn ghost sm" id="thfe" onclick="thFetch()">Read Yahoo now</button></div>';
+  h += '</div>';
+  /* research */
+  h += '<div class="card"><h3>Research brief</h3>';
+  if (s.briefs && s.briefs.length) { var b = s.briefs[0]; h += '<div class="tiny">' + dshort(b.date) + ' · ' + esc(b.source === 'API' ? 'AI' : 'pasted') + ' · ' + esc(b.trigger) + (b.proposed ? ' · proposed ' + esc(b.proposed) : '') + '</div><div class="sm" style="white-space:pre-wrap;margin:6px 0">' + esc(b.text) + '</div>'; } else h += '<div class="tiny">No brief yet.</div>';
+  if (can('review')) h += '<div class="btns">' + (s.ai.hasKey ? '<button class="btn sm" id="thai" onclick="thAi()">Write brief now</button>' : '') + '<button class="btn ghost sm" onclick="thCopy()">Copy question</button><button class="btn ghost sm" onclick="thPasteSheet()">Paste an answer</button></div>' + (s.ai.hasKey ? '' : '<div class="tiny">No key set, so use Copy question, paste it into Claude, then Paste an answer.</div>');
+  h += '</div>';
+  if (s.log && s.log.length) h += '<div class="card"><h3>History</h3>' + s.log.map(function (l) { return '<div class="tiny" style="margin:3px 0">' + dshort(l.date) + ' · ' + esc(l.event) + (l.to ? ' ' + esc(l.from ? l.from + ' → ' : '') + esc(l.to) : '') + (l.detail ? ' · ' + esc(l.detail) : '') + '</div>'; }).join('') + '</div>';
+  $('#main').innerHTML = h;
+}
+function thDone(r) { toast(r.message); clearCache(); S.force = true; SCREENS.thstock(); }
+function thErr(b, e) { busy(b, false); toast(e.message); }
+function thAccept() { var p = TH.s.proposed; api('thesis_set', { asset: TH.id, status: p.status, segment: TH.s.segment ? 'TRUE' : '', reason: p.reason }).then(thDone).catch(function (e) { toast(e.message); }); }
+function thDismiss() { api('thesis_dismiss', { asset: TH.id }).then(thDone).catch(function (e) { toast(e.message); }); }
+function thSetSheet() {
+  var s = TH.s; sheet('<h2>Status of ' + esc(TH.id) + '</h2><div class="seg" id="thsg">' + ['INTACT', 'WATCH', 'BROKEN'].map(function (x) { return '<button class="' + (s.status === x ? 'on' : '') + '" data-v="' + x + '" onclick="thPick(this)">' + x.charAt(0) + x.slice(1).toLowerCase() + '</button>'; }).join('') + '</div><label style="display:flex;gap:10px;align-items:center;margin:8px 0;font-size:16px"><input type="checkbox" id="thseg" style="width:22px;height:22px"' + (s.segment ? ' checked' : '') + '>A business segment has a serious problem</label><label class="field"><span>Reason (needed for Watch, Broken or a segment issue)</span><input id="thrs" value="' + esc(s.reason || '') + '"></label><div class="tiny">Watch and Broken stocks are not offered new money. Broken (or a segment issue) makes the stock appear in the sell lists, with the tax and fees. Nothing is sold for you.</div><div class="btns"><button class="btn" id="thsb" onclick="thSet()">Save</button></div>');
+}
+function thPick(b) { [].forEach.call(document.querySelectorAll('#thsg button'), function (x) { x.classList.remove('on'); }); b.classList.add('on'); }
+function thSet() { var on = document.querySelector('#thsg button.on'), b = $('#thsb'); busy(b, true); api('thesis_set', { asset: TH.id, status: on ? on.getAttribute('data-v') : 'INTACT', segment: $('#thseg').checked ? 'TRUE' : '', reason: $('#thrs').value }).then(function (r) { closeSheet(); thDone(r); }).catch(function (e) { thErr(b, e); }); }
+function thClaimSheet(pre) {
+  var m = TH.s.metricNames, p = pre || {}; sheet('<h2>Add a claim</h2><label class="field"><span>What to test</span><select id="thm">' + Object.keys(m).map(function (k) { return '<option value="' + k + '"' + (p.metric === k ? ' selected' : '') + '>' + esc(m[k]) + '</option>'; }).join('') + '</select></label><div class="grid2"><label class="field"><span>Must stay</span><select id="tho"><option value="&gt;"' + (p.op === '>' ? ' selected' : '') + '>above</option><option value="&gt;="' + (p.op === '>=' ? ' selected' : '') + '>at or above</option><option value="&lt;"' + (p.op === '<' ? ' selected' : '') + '>below</option><option value="&lt;="' + (p.op === '<=' ? ' selected' : '') + '>at or below</option></select></label><label class="field"><span>Limit</span><input id="tht" inputmode="decimal" value="' + (p.threshold === undefined ? '' : p.threshold) + '"></label></div><label class="field"><span>In your words (optional)</span><input id="thc" value="' + esc(p.claim || '') + '"></label><div class="btns"><button class="btn" id="thcb" onclick="thClaimSave(' + (pre && pre.ai ? 'true' : 'false') + ')">Save</button></div>');
+}
+function thClaimSave(ai) { var b = $('#thcb'); busy(b, true); api('thesis_claim_save', { asset: TH.id, metric: $('#thm').value, op: $('#tho').value, threshold: $('#tht').value, claim: $('#thc').value, source: ai ? 'AI' : 'YOU' }).then(function (r) { closeSheet(); thDone(r); }).catch(function (e) { thErr(b, e); }); }
+function thClaimDel(row) { api('thesis_claim_remove', { asset: TH.id, row: row }).then(thDone).catch(function (e) { toast(e.message); }); }
+function thDraft() {
+  var b = $('#thdr'); busy(b, true); api('thesis_draft', { asset: TH.id }).then(function (r) {
+    busy(b, false); TH.draft = r.suggestions; if (!r.suggestions.length) { toast('The AI gave nothing usable. Add claims yourself.'); return; }
+    sheet('<h2>Suggested claims</h2><div class="tiny" style="margin:-6px 0 10px">Tap one to review and save it. Nothing is saved until you do.</div>' + r.suggestions.map(function (x, i) { return '<div class="row tap" onclick="thUse(' + i + ')"><div class="grow"><div class="t" style="white-space:normal">' + esc(x.claim) + '</div><div class="s">' + esc(x.metric) + ' ' + esc(x.op) + ' ' + x.threshold + '</div></div><span class="mut">›</span></div>'; }).join(''));
+  }).catch(function (e) { thErr(b, e); });
+}
+function thUse(i) { var x = TH.draft[i]; thClaimSheet({ metric: x.metric, op: x.op, threshold: x.threshold, claim: x.claim, ai: true }); }
+function thFetch() { var b = $('#thfe'); busy(b, true); api('thesis_fetch', { asset: TH.id }).then(thDone).catch(function (e) { thErr(b, e); }); }
+function thAi() { var b = $('#thai'); busy(b, true); api('thesis_ai', { asset: TH.id }).then(thDone).catch(function (e) { thErr(b, e); }); }
+function thCopy() {
+  api('thesis_prompt', { asset: TH.id }).then(function (r) {
+    TH.prompt = r.prompt; var ok = function () { toast('Question copied. Paste it into Claude, then come back and paste the answer.'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(r.prompt).then(ok).catch(function () { thShowPrompt(); }); else thShowPrompt();
+  }).catch(function (e) { toast(e.message); });
+}
+function thShowPrompt() { sheet('<h2>Question for Claude</h2><div class="tiny" style="margin:-6px 0 8px">Select all, copy, and paste it into Claude.</div><textarea id="thpq" readonly style="width:100%;height:260px;font-size:13px">' + esc(TH.prompt) + '</textarea>'); var t = $('#thpq'); if (t) { t.focus(); t.select(); } }
+function thPasteSheet() { sheet('<h2>Paste the answer</h2><div class="tiny" style="margin:-6px 0 8px">The answer should end with a line starting PROPOSED STATUS. It only proposes; you still confirm.</div><textarea id="thpa" style="width:100%;height:220px;font-size:14px" placeholder="Paste here"></textarea><div class="btns"><button class="btn" id="thpb" onclick="thPasteSave()">Save brief</button></div>'); }
+function thPasteSave() { var b = $('#thpb'); busy(b, true); api('thesis_brief_save', { asset: TH.id, text: $('#thpa').value }).then(function (r) { closeSheet(); thDone(r); }).catch(function (e) { thErr(b, e); }); }
+
+/* ===== Home: review-due card, and More entries ===== */
+var _drawHome13 = drawHome;
+drawHome = function (o) {
+  _drawHome13(o);
+  if (!isAll() || !scr('plan')) return;
+  var show = function (d) { if (!d || !d.review || !d.review.due || S.tab !== 'home' || S.stack.length) return; var m = $('#main'); if (!m || m.querySelector('#rbdue')) return; var el = document.createElement('div'); el.id = 'rbdue'; el.className = 'banner'; el.style.cursor = 'pointer'; el.setAttribute('onclick', "push('rebal')"); el.innerHTML = '<div><b>Rebalance review is due</b> · ' + usd(d.monthlyUsd) + ' to place, ' + d.rows.filter(function (r) { return r.status === 'OVER' || r.status === 'UNDER'; }).length + ' group(s) off target. Tap to review.</div>'; m.insertBefore(el, m.firstChild); };
+  if (RB.d) show(RB.d); else load('rebalance', {}, function (d) { RB.d = d; show(d); }, false, true).catch(function () {});
+};
 
 </script>
 </body>
