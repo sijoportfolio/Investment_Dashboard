@@ -602,8 +602,10 @@ function xirrFor(keys, endValue, asOf) {
 }
 function sumBox(items) { return '<div class="card" style="padding:12px"><div class="grid2">' + items.map(function (i) { return '<div class="stat ' + (i[2] || '') + '"><div class="k">' + i[0] + '</div><div class="v ' + (i[2] || '') + '">' + i[1] + '</div>' + (i[3] ? '<div class="tiny">' + i[3] + '</div>' : '') + '</div>'; }).join('') + '</div></div>'; }
 function holdSummary(rows) {
-  var val = 0, cost = 0, day = 0, dayBase = 0, real = 0, inc = 0, n = rows.length, keys = [];
-  rows.forEach(function (r) { val += r.valueUsd; cost += r.costUsd; real += r.realizedUsd; inc += r.incomeUsd; keys.push(r.key); if (r.dayUsd !== null && r.dayUsd !== undefined) { day += r.dayUsd; dayBase += r.valueUsd - r.dayUsd; } });
+  var val = 0, cost = 0, day = 0, dayBase = 0, dayO = 0, baseO = 0, anyOpen = false, real = 0, inc = 0, n = rows.length, keys = [];
+  rows.forEach(function (r) { val += r.valueUsd; cost += r.costUsd; real += r.realizedUsd; inc += r.incomeUsd; keys.push(r.key); if (r.dayUsd !== null && r.dayUsd !== undefined) { var ac = (r.dims || {}).assetClass, cont = ac === 'Commodity' || ac === 'Crypto', isOpen = r.live && (r.state === 'REGULAR' || r.ext); day += r.dayUsd; dayBase += r.valueUsd - r.dayUsd; if (isOpen && !cont) anyOpen = true; if (isOpen || cont) { dayO += r.dayUsd; baseO += r.valueUsd - r.dayUsd; } } });
+  /* while a stock market is open, "Today" counts only the markets that are open or trade all day; a closed market's last session is not today */
+  if (anyOpen) { day = dayO; dayBase = baseO; }
   /* All-time figures: profit on positions already sold completely and income from them count in the total, whatever the toggle says (the toggle only widens the XIRR). */
   var soldN = 0, soldGain = 0, soldInc = 0, xkeys = keys, cl = S.mem.closed, incm = S.mem.income, seen = {}, dimsOf = {}; keys.forEach(function (k) { seen[k] = 1; });
   if (!cl) load('closed', {}, function () { holdList(); }, false, true);
