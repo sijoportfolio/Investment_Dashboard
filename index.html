@@ -19,7 +19,8 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
 button,input,select,textarea{font:inherit;color:inherit}
-#app{position:fixed;inset:0;display:flex;flex-direction:column;max-width:760px;margin:0 auto}
+html{height:100vh;height:-webkit-fill-available}body{min-height:100vh;min-height:-webkit-fill-available}
+#app{position:fixed;top:0;left:0;right:0;bottom:auto;height:100vh;height:100dvh;display:flex;flex-direction:column;max-width:760px;margin:0 auto}
 #top{padding:calc(var(--sat) + 10px) 18px 6px;display:flex;align-items:center;gap:10px;min-height:calc(var(--sat) + 52px)}
 #top h1{font-size:26px;letter-spacing:-.02em;margin:0;flex:1;font-weight:700}
 #top .sub{font-size:14px;color:var(--tx3);display:block;font-weight:500;letter-spacing:0}
@@ -28,7 +29,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .dot{position:absolute;top:6px;right:7px;min-width:16px;height:16px;border-radius:8px;background:var(--neg);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;padding:0 4px}
 #main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 14px calc(90px + var(--sab))}
 #ptr{height:0;overflow:hidden;text-align:center;color:var(--tx3);font-size:14px;transition:height .15s}
-#tabs{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;padding:8px 10px calc(8px + var(--sab));background:linear-gradient(to top,var(--bg) 60%,transparent);pointer-events:none}
+#tabs{position:fixed;left:0;right:0;bottom:0;bottom:0;display:flex;justify-content:center;padding:8px 10px calc(8px + var(--sab));background:linear-gradient(to top,var(--bg) 60%,transparent);pointer-events:none}
 #tabs .nav{pointer-events:auto;display:flex;width:100%;max-width:560px;background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:26px;padding:6px;box-shadow:var(--shadow)}
 #tabs button{flex:1;border:0;background:none;color:var(--tx3);display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;padding:6px 0;border-radius:20px;font-weight:600;position:relative}
 #tabs button svg{width:22px;height:22px}
@@ -813,7 +814,7 @@ function stressTab(d) {
 SCREENS.more = function () {
   setTop('More', '', false, '');
   var full = isAll(), it = function (ic, t, s, fn, show) { return show === false ? '' : '<div class="row tap" onclick="' + fn + '"><div class="avatar" style="font-size:18px">' + ic + '</div><div class="grow"><div class="t">' + t + '</div><div class="s">' + s + '</div></div><span class="mut">›</span></div>'; };
-  var html = '<div class="card" style="padding:4px 16px">' + it('➕', 'Add entry', 'Buy, sell, deposit, withdrawal, transfer, dividend, interest, fee, option', 'addEntry()', can('trade_entry')) + it('💰', 'Cash', 'Balance per account and latest movements', "push('cash')", scr('holdings')) + it('↔️', 'Transactions', 'Every ledger entry', "push('tx')", scr('transactions')) + it('💵', 'Income', 'Dividends and interest', "push('income')", scr('income')) + it('🎯', 'Plan & risk', 'Goal, risk, stress tests', "go('plan')", full && scr('plan')) + it('🧾', 'Tax', 'Gains, estimate, harvesting, estate', "push('tax')", full && scr('plan')) + it('📈', 'Options', 'What to do with each open option', "push('options')", full && scr('options')) + it('⚖️', 'Rebalance', 'Targets, this month\'s money, sells', "push('rebal')", full && scr('plan')) + it('🌱', 'India harvest', 'Free tax threshold, loss selling, exits', "push('harvest')", full && scr('plan')) + it('🔬', 'Thesis', 'Claims, tripwires, analysts, research', "push('thesis')", full && scr('plan')) + '</div>'
+  var html = '<div class="card" style="padding:4px 16px">' + it('➕', 'Add entry', 'Buy, sell, deposit, withdrawal, transfer, dividend, interest, fee, option', 'addEntry()', can('trade_entry')) + it('💰', 'Cash', 'Balance per account and latest movements', "push('cash')", scr('holdings')) + it('↔️', 'Transactions', 'Every ledger entry', "push('tx')", scr('transactions')) + it('💵', 'Income', 'Dividends and interest', "push('income')", scr('income')) + it('🎯', 'Plan & risk', 'Goal, risk, stress tests', "go('plan')", full && scr('plan')) + it('🧾', 'Tax', 'Gains, estimate, harvesting, estate', "push('tax')", full && scr('plan')) + it('📈', 'Options', 'What to do with each open option', "push('options')", full && scr('options')) + it('⚖️', 'Rebalance', 'Targets, this month\'s money, sells', "push('rebal')", full && scr('plan')) + it('🌱', 'India harvest', 'Free tax threshold, loss selling, exits', "push('harvest')", full && scr('plan')) + it('🧾', 'Tax filing', 'Advance tax, return check, loss register, CA export', "push('taxfile')", full && scr('plan')) + it('🔬', 'Thesis', 'Claims, tripwires, analysts, research', "push('thesis')", full && scr('plan')) + '</div>'
     + '<div class="card" style="padding:4px 16px">' + it('🏷️', 'Prices', 'Health of every price, enter one by hand', "push('prices')", can('prices')) + it('✅', 'Trade check', 'Ledger vs market data', "push('review')", can('review')) + it('👪', 'People & shares', 'Children\'s accounts and shares of your holdings', "push('people')", full && can('settings')) + it('📄', 'Reports', 'PDF or Excel for any view', "push('reports')", scr('reports')) + '</div>'
     + '<div class="card" style="padding:4px 16px">' + it('⚙️', 'Settings', 'Limits, targets, tax rules, sleeves', "push('settings')", can('settings')) + it('🔑', 'Access keys', 'Who can open this app', "push('keys')", can('keys')) + it('🛠️', 'Owner tools', 'Refresh now, rebuild history', "push('tools')", can('owner_jobs')) + it('👤', 'This device', 'Face ID or fingerprint, your key, theme', "push('account')") + '</div>'
     + '<div class="note" style="text-align:center">Portfolio v8 · data as of ' + (S.ov ? dshort(S.ov.asOf) : '') + '</div>';
@@ -2134,6 +2135,102 @@ drawHome = function (o) {
   var show = function (d) { if (!d || !d.review || !d.review.due || S.tab !== 'home' || S.stack.length) return; var m = $('#main'); if (!m || m.querySelector('#rbdue')) return; var el = document.createElement('div'); el.id = 'rbdue'; el.className = 'banner'; el.style.cursor = 'pointer'; el.setAttribute('onclick', "push('rebal')"); el.innerHTML = '<div><b>Rebalance review is due</b> · ' + usd(d.monthlyUsd) + ' to place, ' + d.rows.filter(function (r) { return r.status === 'OVER' || r.status === 'UNDER'; }).length + ' group(s) off target. Tap to review.</div>'; m.insertBefore(el, m.firstChild); };
   if (RB.d) show(RB.d); else load('rebalance', {}, function (d) { RB.d = d; show(d); }, false, true).catch(function () {});
 };
+
+/* ---------- Tax filing pack (More > Tax filing) and the sale-time hint ---------- */
+var TX = { d: null, fy: null, chk: null };
+SCREENS.taxfile = function () {
+  setTop('Tax filing', 'India: advance tax, return check, losses', true, refreshBtn());
+  if (!isAll()) { $('#main').innerHTML = '<div class="empty">Tax filing is for the owner.</div>'; return; }
+  load('taxfile', {}, function (d) { TX.d = d; if (TX.fy === null) TX.fy = d.lastFy; drawTaxfile(d); }, S.force); S.force = false;
+};
+function txStatus(s) { return s === 'OK' ? '<span class="badge OK">paid</span>' : s === 'SHORT' ? '<span class="badge RED">short</span>' : '<span class="badge">coming</span>'; }
+function drawTaxfile(d) {
+  var p = d.planner, h = '';
+  /* advance tax */
+  h += '<div class="card"><h3>Advance tax · ' + esc(p.label) + '</h3><div class="tiny">Your brokers do not withhold tax for you, so you pay it yourself in instalments. Estimate on gains so far: <b>' + inrS(p.taxSoFarInr) + '</b>' + (p.creditsInr ? ' · already withheld ' + inrS(p.creditsInr) : '') + ' · you have noted ' + inrS(p.paidInr) + '.</div>';
+  if (p.next) h += '<div class="banner" style="margin:10px 0"><div>' + (p.next.payInr > 0 ? 'Next: pay about <b>' + inrS(p.next.payInr) + '</b> by <b>' + dshort(p.next.date) + '</b> (' + p.next.pct + '% of the year\'s tax).' : 'Nothing is due by <b>' + dshort(p.next.date) + '</b>.') + '</div></div>';
+  h += p.instalments.map(function (r) { return '<div class="row"><div class="grow"><div class="t">' + dshort(r.date) + ' · ' + r.pct + '%</div><div class="s">due ' + inrS(r.dueInr) + ' · noted ' + inrS(r.paidInr) + (r.interestInr ? ' · interest about ' + inrS(r.interestInr) : '') + '</div></div>' + txStatus(r.status) + '</div>'; }).join('');
+  if (p.b234Risk) h += '<div class="tiny neg" style="margin-top:6px">Less than 90% of the tax is covered, so interest for late advance tax will apply. Paying by the next date limits it.</div>';
+  if (p.carryInInr) h += '<div class="tiny" style="margin-top:6px">Includes ' + inrS(p.carryInInr) + ' of earlier losses set against this year\'s gains.</div>';
+  if (can('review')) h += '<div class="btns"><button class="btn sm" onclick="txPaySheet()">I paid tax</button></div>';
+  if (p.payments.length) h += '<div class="tiny" style="margin-top:8px">' + p.payments.map(function (x) { return dshort(x.date) + ' · ' + (x.kind === 'ADVANCE' ? 'advance' : 'self-assessment') + ' · ' + inrS(x.amount); }).join('<br>') + '</div>';
+  h += '</div>';
+  /* return check */
+  var yopts = d.years.map(function (y) { return '<option value="' + y.fy + '"' + (y.fy === TX.fy ? ' selected' : '') + '>' + esc(y.label) + '</option>'; }).join('');
+  var F = function (id, lab) { return '<label class="field"><span>' + lab + '</span><input id="' + id + '" inputmode="decimal" placeholder="optional"></label>'; };
+  h += '<div class="card"><h3>Check my return before I submit</h3><div class="tiny" style="margin-bottom:6px">Open the pre-filled statement of income on the tax portal and type the totals here. The app compares them with your ledger.</div><label class="field"><span>Financial year</span><select id="tcfy">' + yopts + '</select></label>'
+    + F('tc_sale_value', 'Sale value of listed shares') + F('tc_st_gain', 'Short-term gain (shares)') + F('tc_lt_gain', 'Long-term gain (shares)') + F('tc_dividends', 'Dividends') + F('tc_debt_gain', 'Debt-fund gains (slab rate)') + F('tc_other_income', 'Other income on the return (interest etc.)') + F('tc_tds_total', 'Total TDS shown') + F('tc_tax_with_cess', 'Total tax with cess') + F('tc_interest_234', 'Interest 234B / 234C shown')
+    + '<div class="btns"><button class="btn" id="tcb" onclick="txCheck()">Check</button></div><div id="tcres"></div></div>';
+  /* loss register */
+  var r = d.register;
+  h += '<div class="card"><h3>Loss register</h3><div class="tiny">A short-term loss offsets short- and long-term gains. A long-term loss offsets long-term gains only. Carried forward up to 8 years, <b>only if the return was filed on time</b>.</div>';
+  h += r.open.length ? r.open.map(function (e) { return '<div class="row"><div class="grow"><div class="t">' + (e.kind === 'ST' ? 'Short-term' : 'Long-term') + ' loss from ' + esc(e.label) + '</div><div class="s">' + inrS(e.leftInr) + ' left of ' + inrS(e.amountInr) + ' · usable until ' + esc(e.lastYear) + (e.lost ? ' · <span class="neg">filed late, cannot be carried</span>' : e.unconfirmed ? ' · mark that year as filed on time to be sure' : '') + '</div></div></div>'; }).join('') : '<div class="tiny" style="margin-top:6px">No loss is waiting to be used.</div>';
+  h += '</div>';
+  /* years */
+  h += '<div class="card"><h3>Years and filing</h3>' + d.years.map(function (y) { return '<div class="row"><div class="grow"><div class="t">' + esc(y.label) + '</div><div class="s">short ' + inrS(y.stGainInr) + ' · long ' + inrS(y.ltGainInr) + ' · dividends ' + inrS(y.divInr) + ' · est. tax ' + inrS(y.taxInr) + '</div><div class="s">' + (y.filedOn ? 'filed ' + dshort(y.filedOn) + (y.onTime === false ? ' · <span class="neg">after the due date ' + dshort(y.due) + '</span>' : ' · on time') : 'not marked as filed · due ' + dshort(y.due)) + '</div></div>' + (can('review') ? '<button class="btn ghost sm" onclick="txFiledSheet(' + y.fy + ')">' + (y.filedOn ? 'Edit' : 'Mark filed') + '</button>' : '') + '</div>'; }).join('') + '</div>';
+  /* brokers */
+  h += '<div class="card"><h3>Does the broker withhold tax?</h3><div class="tiny">Today your brokers treat you as a resident and do not withhold tax on gains or dividends. Switch one on only after it starts to (for example after your NRI status is updated with it).</div>' + d.brokers.map(function (b) { return '<div class="row"><div class="grow"><div class="t">' + esc(b.broker) + '</div></div>' + (can('settings') ? '<button class="btn ' + (b.on ? '' : 'ghost') + ' sm" onclick="txTds(\'' + esc(b.broker) + '\',' + (b.on ? 'false' : 'true') + ')">' + (b.on ? 'Withholds' : 'Does not withhold') + '</button>' : '<span class="tiny">' + (b.on ? 'Withholds' : 'Does not withhold') + '</span>') + '</div>'; }).join('') + '</div>';
+  /* export */
+  h += '<div class="card"><h3>List of sales for your CA</h3><div class="tiny" style="margin-bottom:6px">One line per sale lot: dates, quantity, sale value, cost, gain and short or long term.</div><label class="field"><span>Financial year</span><select id="cgfy"><option value="">All years</option>' + d.years.map(function (y) { return '<option value="' + esc(y.label) + '">' + esc(y.label) + '</option>'; }).join('') + '</select></label><div class="btns"><button class="btn" id="cgb" onclick="txCsv()">Download CSV</button></div></div>';
+  h += '<div class="note">' + esc(d.note) + ' Not covered here, so make sure your return has them: bank interest, other Indian income, foreign assets disclosure.</div>';
+  $('#main').innerHTML = h;
+}
+function txNum(id) { var v = ($('#' + id) || {}).value; return v === undefined ? '' : String(v).trim(); }
+function txCheck() {
+  var b = $('#tcb'), P = { fy: $('#tcfy').value }; ['sale_value', 'st_gain', 'lt_gain', 'dividends', 'debt_gain', 'other_income', 'tds_total', 'tax_with_cess', 'interest_234'].forEach(function (k) { P[k] = txNum('tc_' + k); }); TX.fy = +P.fy;
+  busy(b, true); api('taxcheck', P).then(function (r) {
+    busy(b, false); TX.chk = r;
+    $('#tcres').innerHTML = '<div style="margin-top:12px"><b>' + esc(r.label) + ': ' + (r.issues ? r.issues + ' to look at' : 'everything checked agrees') + '</b></div>' + r.findings.map(function (f) {
+      return '<div class="row" style="align-items:flex-start"><div class="grow"><div class="t" style="white-space:normal">' + esc(f.title) + ' <span class="badge ' + (f.status === 'OK' ? 'OK' : f.status === 'CHECK' ? 'WARN' : '') + '">' + (f.status === 'OK' ? 'matches' : f.status === 'CHECK' ? 'check' : 'info') + '</span></div><div class="tiny" style="white-space:normal">Return ' + inrS(f.returnInr) + ' · App ' + inrS(f.appInr) + (f.diffInr ? ' · difference ' + inrS(f.diffInr) : '') + '</div><div class="tiny" style="margin-top:2px">' + esc(f.text) + '</div></div></div>';
+    }).join('') + '<div class="tiny" style="margin-top:6px">' + esc(r.note) + '</div>';
+  }).catch(function (e) { busy(b, false); toast(e.message); });
+}
+function txPaySheet() {
+  var d = TX.d, t = new Date().toISOString().slice(0, 10);
+  sheet('<h2>I paid tax</h2><p class="mut sm">Nothing is paid from here. Note the payment you made on the tax portal.</p><div class="seg"><button id="tpa" class="on" onclick="TX.kind=\'ADVANCE\';$(\'#tpa\').className=\'on\';$(\'#tps\').className=\'\'">Advance tax</button><button id="tps" onclick="TX.kind=\'SELF_ASSESSMENT\';$(\'#tps\').className=\'on\';$(\'#tpa\').className=\'\'">Self-assessment</button></div><label class="field"><span>Date paid</span><input type="date" id="tpd" value="' + t + '"></label><label class="field"><span>Amount (INR)</span><input id="tpm" inputmode="decimal"></label><label class="field"><span>Note (optional)</span><input id="tpn"></label><div class="btns"><button class="btn" id="tpb" onclick="txPaySave()">Save</button><button class="btn ghost" onclick="closeSheet()">Cancel</button></div>');
+  TX.kind = 'ADVANCE';
+}
+function txPaySave() {
+  var b = $('#tpb'); busy(b, true);
+  api('tax_payment_add', { date: $('#tpd').value, amount: $('#tpm').value, kind: TX.kind, note: $('#tpn').value, fy: TX.kind === 'ADVANCE' ? TX.d.curFy : '' }).then(function (r) { closeSheet(); planDone(r); SCREENS.taxfile(); }).catch(function (e) { toast(e.message); busy(b, false); });
+}
+function txFiledSheet(fy) {
+  var y = TX.d.years.filter(function (x) { return x.fy === fy; })[0] || {};
+  sheet('<h2>Return for ' + esc(y.label || fy) + '</h2><p class="mut sm">Due ' + dshort(y.due) + '. A loss can be carried forward only if you filed by then.</p><label class="field"><span>Date filed</span><input type="date" id="tfd" value="' + esc(y.filedOn || new Date().toISOString().slice(0, 10)) + '"></label><label class="field"><span>Tax on the return, INR (optional)</span><input id="tft" inputmode="decimal" value="' + (y.returnTaxInr === null || y.returnTaxInr === undefined ? '' : y.returnTaxInr) + '"></label><div class="btns"><button class="btn" id="tfb" onclick="txFiledSave(' + fy + ')">Save</button><button class="btn ghost" onclick="closeSheet()">Cancel</button></div>');
+}
+function txFiledSave(fy) {
+  var b = $('#tfb'); busy(b, true);
+  api('tax_filed', { fy: fy, filed_on: $('#tfd').value, return_tax: $('#tft').value }).then(function (r) { closeSheet(); planDone(r); SCREENS.taxfile(); }).catch(function (e) { toast(e.message); busy(b, false); });
+}
+function txTds(broker, on) { api('tds_set', { broker: broker, on: on }).then(function (r) { planDone(r); SCREENS.taxfile(); }).catch(function (e) { toast(e.message); }); }
+function txCsv() {
+  var b = $('#cgb'), fy = $('#cgfy').value; busy(b, true);
+  api('taxcg').then(function (d) {
+    busy(b, false); var rows = d.rows.filter(function (r) { return !fy || r.fy === fy; });
+    if (!rows.length) { toast('No sales in that year.'); return; }
+    var head = ['Financial year', 'Sell date', 'Buy date', 'Asset', 'Name', 'Account', 'Broker', 'Quantity', 'Sale value INR', 'Cost INR', 'Selling charges INR', 'Gain INR (sale value less cost)', 'Term', 'Type', 'Origin', 'Reference'];
+    var csv = [head].concat(rows.map(function (r) { return [r.fy, r.sellDate, r.buyDate, r.asset, r.name, r.acct, r.broker, r.qty, r.saleValue, r.cost, r.sellFees, r.gainAsFiled, r.term, r.cls, r.origin, r.ref]; })).map(function (r) { return r.map(function (c) { c = c === null || c === undefined ? '' : String(c); return /[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c; }).join(','); }).join('\n');
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })); a.download = 'capital_gains_' + (fy || 'all_years').replace(/[^\w-]+/g, '_') + '.csv'; document.body.appendChild(a); a.click(); a.remove(); toast('Downloaded ' + rows.length + ' lines');
+  }).catch(function (e) { busy(b, false); toast(e.message); });
+}
+
+/* ---------- sale-time hint inside the Add transaction sheet ---------- */
+var _txHintT = null;
+function txHint() {
+  clearTimeout(_txHintT);
+  _txHintT = setTimeout(function () {
+    var xs = $('#xs'), xa = $('#xa'); if (!xs || !xa || !isAll()) return;
+    var host = $('#xh'); if (!host) { var g = $('#xg'); if (!g) return; g.insertAdjacentHTML('afterend', '<div id="xh"></div>'); host = $('#xh'); }
+    if (S.txSide !== 'SELL' || !xs.value.trim() || !xa.value) { host.innerHTML = ''; return; }
+    api('sale_hint', { acct: xa.value, asset: xs.value.trim().toUpperCase(), qty: $('#xq').value, price: $('#xp').value }).then(function (r) {
+      var h2 = $('#xh'); if (!h2) return;
+      h2.innerHTML = r && r.applies && r.shortQty > 0 ? '<div class="banner" style="margin:8px 0"><div class="sm"><b>Tax hint:</b> ' + esc(r.note) + '</div></div>' : '';
+    }).catch(function () { var h3 = $('#xh'); if (h3) h3.innerHTML = ''; });
+  }, 500);
+}
+document.addEventListener('input', function (e) { if (e.target && /^x[asqpd]$/.test(e.target.id || '')) txHint(); });
+document.addEventListener('change', function (e) { if (e.target && /^x[asqpd]$/.test(e.target.id || '')) txHint(); });
+document.addEventListener('click', function (e) { if (e.target && (e.target.id === 'tb' || e.target.id === 'ts')) txHint(); });
 
 </script>
 </body>
