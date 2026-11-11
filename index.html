@@ -421,13 +421,13 @@ function liveDay() {
   var g = {}, d = 0, base = 0, n = 0;
   S.hold.rows.forEach(function (r) {
     var l = liveRow(r); if (!l.live || l.dayUsd === null || l.dayUsd === undefined) return;
-    var reg = (r.dims || {}).region || 'Other', x = g[reg] = g[reg] || { region: reg, usd: 0, base: 0, open: false, ext: '', opens: null, t: '' }, b = l.valueUsd - l.dayUsd;
+    var reg = (r.dims || {}).assetClass === 'Commodity' ? 'Commodities' : ((r.dims || {}).region || 'Other'), x = g[reg] = g[reg] || { region: reg, usd: 0, base: 0, open: false, ext: '', opens: null, t: '' }, b = l.valueUsd - l.dayUsd;
     x.usd += l.dayUsd; x.base += b; if (l.state === 'REGULAR') x.open = true; else if (l.ext) { x.ext = l.state; if (l.opens && (!x.opens || l.opens < x.opens)) x.opens = l.opens; } if (l.liveAt && l.liveAt > x.t) x.t = l.liveAt;
     d += l.dayUsd; base += b; n++;
   });
   if (!n) return null;
-  var groups = Object.keys(g).map(function (k) { var x = g[k]; return { region: k, usd: x.usd, pct: x.base ? x.usd / x.base * 100 : 0, open: x.open, ext: x.open ? '' : x.ext, opens: x.opens, t: x.t, crypto: k === 'Crypto' }; });
-  /* crypto trades all day, so it never counts as "a market is open"; it joins the headline only when a stock market is open */
+  var groups = Object.keys(g).map(function (k) { var x = g[k]; return { region: k, usd: x.usd, pct: x.base ? x.usd / x.base * 100 : 0, open: x.open, ext: x.open ? '' : x.ext, opens: x.opens, t: x.t, crypto: k === 'Crypto' || k === 'Commodities' }; });
+  /* crypto and commodity futures trade nearly all day, so they never count as "a market is open"; it joins the headline only when a stock market is open */
   var anyOpen = groups.some(function (x) { return (x.open || x.ext) && !x.crypto; }), hu = 0, hb = 0;
   groups.forEach(function (x) { if (!anyOpen || x.open || x.ext) { hu += x.usd; hb += g[x.region].base; } });
   return { usd: d, pct: base ? d / base * 100 : 0, n: n, open: anyOpen ? groups.filter(function (x) { return (x.open || x.ext) && !x.crypto; }).length : 0, headUsd: hu, headPct: hb ? hu / hb * 100 : 0, groups: groups };
