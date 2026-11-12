@@ -19,7 +19,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
 button,input,select,textarea{font:inherit;color:inherit}
-html{height:100vh;height:-webkit-fill-available}body{min-height:100vh;min-height:-webkit-fill-available}
+html{height:100vh;height:-webkit-fill-available}body{min-height:100vh;min-height:-webkit-fill-available;position:fixed;top:0;left:0;right:0;width:100%;overflow:hidden}
 #app{position:fixed;top:0;left:0;right:0;bottom:auto;height:100vh;height:100dvh;display:flex;flex-direction:column;max-width:760px;margin:0 auto}
 #top{padding:calc(var(--sat) + 10px) 18px 6px;display:flex;align-items:center;gap:10px;min-height:calc(var(--sat) + 52px)}
 #top h1{font-size:26px;letter-spacing:-.02em;margin:0;flex:1;font-weight:700}
@@ -101,7 +101,7 @@ table.t{width:100%;border-collapse:collapse;font-size:15px}table.t th{text-align
 .note{font-size:14px;color:var(--tx3);margin:6px 2px 12px}
 .reportdoc{display:none}
 .selbtn{text-align:left;cursor:pointer;max-width:48%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.selbtn.on{border-color:var(--acc);color:var(--acc)}
-@media print{body{background:#fff;color:#000}#app,#sheet,#sheetbg,#tabs,#toast,.lock{display:none!important}.reportdoc{display:block!important;padding:12mm;color:#000;font:11pt/1.35 system-ui}.reportdoc h1{font-size:18pt}.reportdoc table{width:100%;border-collapse:collapse;font-size:9pt}.reportdoc th,.reportdoc td{border-bottom:1px solid #ccc;padding:3px 4px;text-align:left}.reportdoc .r{text-align:right}}
+@media print{html,body{height:auto;position:static;overflow:visible}body{background:#fff;color:#000}#app,#sheet,#sheetbg,#tabs,#toast,.lock{display:none!important}.reportdoc{display:block!important;padding:12mm;color:#000;font:11pt/1.35 system-ui}.reportdoc h1{font-size:18pt}.reportdoc table{width:100%;border-collapse:collapse;font-size:9pt}.reportdoc th,.reportdoc td{border-bottom:1px solid #ccc;padding:3px 4px;text-align:left}.reportdoc .r{text-align:right}}
 @media(min-width:900px){
  #app{max-width:none;margin:0 0 0 210px}
  #top{padding:24px 40px 8px;max-width:1180px}#top h1{font-size:30px}
@@ -198,7 +198,7 @@ function V8_navAt(nav, iso) {
 }
 /* return over [from, to] (closing values). flows: [[date, amount]] investor view (money in negative).
    twr = chained index; xirr = money-weighted; gain = value change minus net money in plus income paid out. */
-function V8_period(nav, flows, from, to) {
+function V8_period(nav, flows, from, to, extra) {
   if (!nav || !nav.length) return null;
   var iT = V8_navAt(nav, to || nav[nav.length - 1][0]); if (iT < 0) return null;
   var iF = V8_navAt(nav, from); var fromStart = iF < 0 || iF === 0; if (iF < 0) iF = 0;
@@ -209,8 +209,9 @@ function V8_period(nav, flows, from, to) {
   var cfs = []; if (!fromStart) cfs.push({ date: a[0], amount: -a[1] });
   for (i = 0; i < flows.length; i++) { var f = flows[i]; if (f[0] <= b[0] && (fromStart ? f[0] >= a[0] : f[0] > a[0])) cfs.push({ date: f[0], amount: f[1] }); }
   cfs.push({ date: b[0], amount: b[1] });
-  var x = V8_xirr(cfs);
-  return { from: a[0], to: b[0], days: days, startValue: startValue, endValue: b[1], netIn: net, income: inc, gain: gain, twr: twr,
+  var x = V8_xirr(cfs), x2 = null;
+  if (extra && extra.length) { var c2 = cfs.slice(0, cfs.length - 1); extra.forEach(function (e) { if (e[0] <= b[0] && e[0] >= a[0]) c2.push({ date: e[0], amount: e[1] }); }); c2.push(cfs[cfs.length - 1]); x2 = V8_xirr(c2); }
+  return { xirrAfterTax: x2, from: a[0], to: b[0], days: days, startValue: startValue, endValue: b[1], netIn: net, income: inc, gain: gain, twr: twr,
            twrAnnual: days >= 365 ? Math.pow(1 + twr, 365 / days) - 1 : null, xirr: x, xirrReliable: days >= 365 };
 }
 /* the standard buttons. years: [1,2,3,5]; the date is today's nav date */
@@ -485,7 +486,7 @@ function drawHome(o, meta) {
     else { h += homeReturn(o, sub, from); if ((HOME.cmp.length && HOME.cmp.some(function (s) { return !S.benchTried[s]; })) || (HOME.accts && !S.navacct && !S.navTried)) { var again = function () { if (S.tab === 'home' && !S.stack.length && S.ov) drawHome(S.ov); }; if (HOME.cmp.length) hLoadBench(again); if (HOME.accts) hLoadNav(again); } }
     if (sel) h += '<div class="grid2" style="margin-top:12px"><div class="stat"><div class="k">Return</div><div class="v ' + cls(sel.twrPct) + '">' + pc(sel.twrPct, 1) + '</div><div class="tiny">' + (sel.twrAnnualPct !== null ? pc(sel.twrAnnualPct, 1) + ' a year' : sel.days + ' days: not annualised') + '</div></div><div class="stat"><div class="k">Gain</div><div class="v ' + cls(sel.gainUsd) + '">' + usdS(sel.gainUsd) + '</div><div class="tiny">' + (sel.xirrReliable ? 'XIRR ' + pc(sel.xirrPct, 1) : 'XIRR needs a year') + '</div></div></div>';
     h += '</div>';
-    h += '<div class="card"><h3>Since you started</h3>' + kv('Put in (net)', usd(o.netMoneyInUsd)) + kv('Total gain', '<span class="' + cls(o.totalGainUsd) + '">' + usdS(o.totalGainUsd) + '</span>') + kv('Money-weighted (XIRR)', pc(o.xirrPct, 2)) + kv('Time-weighted', pc(o.twrPct, 1) + ' · ' + pc(o.twrAnnualPct, 1) + ' a year') + kv('Unrealised', '<span class="' + cls(o.unrealizedUsd) + '">' + usdS(o.unrealizedUsd) + '</span>') + kv('Realised', '<span class="' + cls(o.realizedUsd) + '">' + usdS(o.realizedUsd) + '</span>') + kv('Income received', usd(o.incomeUsd)) + (o.taxEstUsd !== null && o.taxEstUsd !== undefined && o.totalGainUsd !== null ? kv('Estimated Indian tax', '<span class="neg">−' + usd(o.taxEstUsd) + '</span>') + kv('Total gain after tax', '<span class="' + cls(o.totalGainUsd - o.taxEstUsd) + '">' + usdS(o.totalGainUsd - o.taxEstUsd) + '</span>') + '<div class="tiny" style="margin-top:4px">Tax is an estimate on your Indian gains and dividends, summed over all years (US, UAE and crypto gains have no tax for you). Returns above are before tax.</div>' : '') + (o.optionsOtherUsd ? kv('Options and other', '<span class="' + cls(o.optionsOtherUsd) + '">' + usdS(o.optionsOtherUsd) + '</span>') : '') + '</div>';
+    h += '<div class="card"><h3>Since you started</h3>' + kv('Put in (net)', usd(o.netMoneyInUsd)) + kv('Total gain', '<span class="' + cls(o.totalGainUsd) + '">' + usdS(o.totalGainUsd) + '</span>') + kv('Money-weighted (XIRR)', pc(o.xirrPct, 2)) + kv('Time-weighted', pc(o.twrPct, 1) + ' · ' + pc(o.twrAnnualPct, 1) + ' a year') + kv('Unrealised', '<span class="' + cls(o.unrealizedUsd) + '">' + usdS(o.unrealizedUsd) + '</span>') + kv('Realised', '<span class="' + cls(o.realizedUsd) + '">' + usdS(o.realizedUsd) + '</span>') + kv('Income received', usd(o.incomeUsd)) + (o.taxEstUsd !== null && o.taxEstUsd !== undefined && o.totalGainUsd !== null ? kv('Estimated Indian tax', '<span class="neg">−' + usd(o.taxEstUsd) + '</span>') + (o.xirrAfterTaxPct !== null && o.xirrAfterTaxPct !== undefined ? kv('Money-weighted (XIRR) after tax', pc(o.xirrAfterTaxPct, 2)) : '') + kv('Total gain after tax', '<span class="' + cls(o.totalGainUsd - o.taxEstUsd) + '">' + usdS(o.totalGainUsd - o.taxEstUsd) + '</span>') + '<div class="tiny" style="margin-top:4px">Tax is an estimate on your Indian gains and dividends, summed over all years (US, UAE and crypto gains have no tax for you). Returns above are before tax. After-tax XIRR treats the tax of each year as paid on 15 March of that year.</div>' : '') + (o.optionsOtherUsd ? kv('Options and other', '<span class="' + cls(o.optionsOtherUsd) + '">' + usdS(o.optionsOtherUsd) + '</span>') : '') + '</div>';
     var j = o.journey; if (j) h += journeyCard(j) + homeCharts(o);
     if (o.loan) h += loanCard(o.loan);
   }
@@ -2233,6 +2234,12 @@ function txHint() {
 document.addEventListener('input', function (e) { if (e.target && /^x[asqpd]$/.test(e.target.id || '')) txHint(); });
 document.addEventListener('change', function (e) { if (e.target && /^x[asqpd]$/.test(e.target.id || '')) txHint(); });
 document.addEventListener('click', function (e) { if (e.target && (e.target.id === 'tb' || e.target.id === 'ts')) txHint(); });
+
+/* iPhone: after the keyboard closes the page can stay scrolled, leaving an empty strip under the app; put it back */
+function resetScroll() { try { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; } catch (e) { } }
+document.addEventListener('focusout', function () { setTimeout(resetScroll, 60); setTimeout(resetScroll, 400); });
+window.addEventListener('orientationchange', function () { setTimeout(resetScroll, 300); });
+if (window.visualViewport) window.visualViewport.addEventListener('resize', function () { if (window.visualViewport.height >= window.innerHeight - 2) resetScroll(); });
 
 </script>
 </body>
