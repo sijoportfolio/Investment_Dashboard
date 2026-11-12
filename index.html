@@ -2252,6 +2252,47 @@ function fitScreen() {
 fitScreen(); window.addEventListener('resize', fitScreen); window.addEventListener('orientationchange', function () { setTimeout(fitScreen, 300); }); document.addEventListener('focusout', function () { setTimeout(fitScreen, 200); });
 function screenInfo() { try { var v = window.visualViewport; return 'Window ' + window.innerWidth + '×' + window.innerHeight + ' · screen ' + screen.width + '×' + screen.height + (v ? ' · visible ' + Math.round(v.width) + '×' + Math.round(v.height) : '') + ' · ' + (window.navigator.standalone ? 'home-screen app' : 'browser') + ' · fit ' + (document.documentElement.style.getPropertyValue('--h') || 'off'); } catch (e) { return ''; } }
 
+/* ---------- Wheel performance card at the top of the Wheel tab ---------- */
+var WP = { d: null, p: 'M', busy: false, err: '' };
+var _screensWheel14 = SCREENS.wheel;
+SCREENS.wheel = function () { WP.d = null; _screensWheel14.apply(this, arguments); };
+var _drawWheel14 = drawWheel;
+drawWheel = function (d) {
+  _drawWheel14(d);
+  var m = $('#main'); if (!m || !isAll()) return;
+  m.insertAdjacentHTML('afterbegin', '<div id="wperf">' + wpHtml() + '</div>'); if (!WP.d && !WP.busy) wpLoad();
+};
+function wpLoad() {
+  WP.busy = true; WP.err = '';
+  api('wheelperf', { period: WP.p }).then(function (d) { WP.d = d; WP.busy = false; var e = $('#wperf'); if (e) e.innerHTML = wpHtml(); }).catch(function (e) { WP.busy = false; WP.err = e.message; var x = $('#wperf'); if (x) x.innerHTML = wpHtml(); });
+}
+function wpPick(p) { WP.p = p; WP.d = null; var e = $('#wperf'); if (e) e.innerHTML = wpHtml(); wpLoad(); }
+function wpHtml() {
+  var d = WP.d, chips = [['M', 'This month'], ['3M', '3 months'], ['12M', '12 months'], ['ALL', 'Since start']].map(function (x) { return '<button class="chip ' + (WP.p === x[0] ? 'on' : '') + '" onclick="wpPick(\'' + x[0] + '\')">' + x[1] + '</button>'; }).join('');
+  var h = '<div class="card"><h3>Wheel performance</h3><div class="chips" style="flex-wrap:wrap;margin-bottom:8px">' + chips + '</div>';
+  if (WP.err) return h + '<div class="tiny neg">' + esc(WP.err) + '</div></div>';
+  if (!d) return h + '<div class="tiny">Working it out…</div></div>';
+  if (d.empty) return h + '<div class="tiny">' + esc(d.message) + '</div></div>';
+  var b = d.bench, tip = function (t) { return '<div class="tiny" style="margin-top:2px">' + t + '</div>'; };
+  h += '<div class="tiny">' + dshort(d.from) + ' to ' + dshort(d.to) + ' · ' + d.days + ' day' + (d.days === 1 ? '' : 's') + '</div>';
+  h += '<div class="big num ' + cls(d.resultUsd) + '" style="font-size:30px;margin:4px 0">' + usdS(d.resultUsd) + '</div><div class="tiny">earned by the Wheel in this period, before tax</div>';
+  h += kv('Premium earned', '<span class="' + cls(d.premiumUsd) + '">' + usdS(d.premiumUsd) + '</span>' + (d.ended ? ' <span class="tiny">' + d.ended + ' option' + (d.ended === 1 ? '' : 's') + ' ended' + (d.winRatePct !== null ? ' · ' + d.winRatePct + '% kept the premium' : '') + '</span>' : ''));
+  h += kv('Shares from assignment', '<span class="' + cls(d.sharesUsd) + '">' + usdS(d.sharesUsd) + '</span>');
+  h += kv('Premium not earned yet', usd(d.openPremiumUsd));
+  if (d.heldUnrealUsd) h += kv('Assigned shares still held', '<span class="' + cls(d.heldUnrealUsd) + '">' + usdS(d.heldUnrealUsd) + '</span> <span class="tiny">not in the total</span>');
+  h += '<div style="margin-top:10px"><b>Against the cash it secured</b></div>' + kv('Secured on average', usd(d.avgSecuredUsd) + ' <span class="tiny">now ' + usd(d.securedNowUsd) + '</span>') + kv('Return on secured cash', d.returnOnSecuredPct === null ? '–' : '<span class="' + cls(d.returnOnSecuredPct) + '">' + pc(d.returnOnSecuredPct, 2) + '</span>') + kv('Per year at this pace', d.annualisedOnSecuredPct === null ? '–' : pc(d.annualisedOnSecuredPct, 1));
+  if (d.short) h += tip('Only ' + d.days + ' days of history, so the per-year figure swings a lot. Treat it with care.');
+  h += '<div style="margin-top:10px"><b>Against the whole portfolio</b></div>' + kv('Portfolio value on average', d.avgPortfolioUsd === null ? '–' : usd(d.avgPortfolioUsd)) + kv('Wheel result as % of portfolio', d.pctOfPortfolio === null ? '–' : pc(d.pctOfPortfolio, 2) + (d.annualisedOnPortfolioPct !== null ? ' <span class="tiny">(' + pc(d.annualisedOnPortfolioPct, 1) + ' a year)</span>' : ''));
+  h += kv('Portfolio return, same period', d.portfolioTwrPct === null ? '–' : '<span class="' + cls(d.portfolioTwrPct) + '">' + pc(d.portfolioTwrPct, 2) + '</span>' + (d.portfolioGainUsd !== null ? ' <span class="tiny">' + usdS(d.portfolioGainUsd) + '</span>' : ''));
+  if (d.shareOfGainPct !== null) h += kv('Wheel share of the portfolio gain', pc(d.shareOfGainPct, 0));
+  h += '<div style="margin-top:10px"><b>Benchmarks on the same secured cash</b></div>';
+  h += kv('Cash at ' + b.cashRatePct + '% a year', usd(b.cashEarnUsd) + ' <span class="tiny ' + cls(b.beatCashUsd) + '">Wheel ' + (b.beatCashUsd >= 0 ? 'ahead' : 'behind') + ' by ' + usd(Math.abs(b.beatCashUsd)) + '</span>');
+  h += kv('Your ' + b.targetPct + '% yearly target', usd(b.targetEarnUsd) + ' <span class="tiny ' + cls(b.beatTargetUsd) + '">Wheel ' + (b.beatTargetUsd >= 0 ? 'ahead' : 'behind') + ' by ' + usd(Math.abs(b.beatTargetUsd)) + '</span>');
+  h += kv('S&P 500, same dates', b.sp500Pct === null ? '<span class="tiny">no index data yet</span>' : pc(b.sp500Pct, 2) + ' <span class="tiny">= ' + usdS(b.sp500OnSecuredUsd) + ' on the same cash</span>');
+  if (d.byAsset && d.byAsset.length) h += '<div style="margin-top:10px"><b>By stock</b></div>' + d.byAsset.map(function (r) { return kv(esc(r.asset) + ' <span class="tiny">' + r.trades + ' trade' + (r.trades === 1 ? '' : 's') + '</span>', usdS(r.premiumUsd + r.sharesUsd) + (r.sharesUsd ? ' <span class="tiny">premium ' + usdS(r.premiumUsd) + ' · shares ' + usdS(r.sharesUsd) + '</span>' : '')); }).join('');
+  return h + tip(esc(d.note)) + '</div>';
+}
+
 </script>
 </body>
 </html>
