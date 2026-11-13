@@ -95,7 +95,7 @@ svg.chart{width:100%;display:block;touch-action:pan-y}
 table.t{width:100%;border-collapse:collapse;font-size:15px}table.t th{text-align:left;color:var(--tx3);font-weight:600;font-size:13px;text-transform:uppercase;padding:6px 4px}table.t td{padding:8px 4px;border-top:1px solid var(--line)}table.t .r{text-align:right}
 .hide{display:none!important}
 .empty{text-align:center;color:var(--tx3);padding:30px 10px}
-.spin{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:sp .8s linear infinite;display:inline-block;vertical-align:middle}@keyframes sp{to{transform:rotate(360deg)}}
+.iconbtn.spinning svg{animation:sp .8s linear infinite}.spin{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:sp .8s linear infinite;display:inline-block;vertical-align:middle}@keyframes sp{to{transform:rotate(360deg)}}
 .skel{height:120px;border-radius:var(--r);background:linear-gradient(90deg,var(--card),var(--card2),var(--card));background-size:200% 100%;animation:sk 1.2s infinite;margin-bottom:12px}@keyframes sk{to{background-position:-200% 0}}
 .kv{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-size:15.5px}.kv:first-child{border-top:0}.kv span:first-child{color:var(--tx2)}
 .note{font-size:14px;color:var(--tx3);margin:6px 2px 12px}
@@ -166,6 +166,14 @@ body.nocomet #comet{display:none}
 .row .s.chg{display:inline-block;padding:2px 9px;border-radius:9px;font-weight:700;margin-top:2px}.row .s.chg.pos{background:rgba(52,201,143,.16);color:var(--pos)}.row .s.chg.neg{background:rgba(255,107,107,.16);color:var(--neg)}
 .row.up{background:linear-gradient(90deg,rgba(52,201,143,.10),transparent 45%);box-shadow:inset 4px 0 0 var(--pos)}.row.dn{background:linear-gradient(90deg,rgba(255,107,107,.10),transparent 45%);box-shadow:inset 4px 0 0 var(--neg)}
 
+.track-wrap{position:relative;height:64px;margin:10px 0 4px}.track{position:absolute;top:34px;left:0;right:0;height:6px;background:var(--line);border-radius:3px}.track-fill{position:absolute;top:0;left:0;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--info),#7BB3F5)}
+.pole{position:absolute;top:6px;width:2px;height:32px;background:var(--tx3);transform:translateX(-1px);border-radius:1px}.pole::before{content:'';position:absolute;top:0;left:2px;border-top:8px solid transparent;border-bottom:8px solid transparent;border-left:22px solid var(--fc,#2DBFAE);opacity:.85}
+.pole.passed{background:#DFC15A}.pole.passed::before{border-left-color:#DFC15A;opacity:1}.pole.goal::before{border:0;width:24px;height:16px;background:repeating-conic-gradient(#eee 0 25%,#111 0 50%) 0 0/8px 8px;opacity:1}.pole.goal{background:var(--tx)}
+.mlabel{position:absolute;top:46px;font-size:11px;line-height:1.25;text-align:center;color:var(--tx3);transform:translateX(-50%);white-space:nowrap}.mlabel b{display:block;font-weight:600;color:var(--tx2)}.mlabel.last{transform:translateX(-85%)}
+.runner.fig{position:absolute;top:10px;font-size:24px;line-height:1;cursor:pointer;z-index:2;transform:translateX(-50%)}.runner .fl{display:inline-block}.runner.ahead .fl,.runner.pace .fl,.runner.behind .fl{transform:scaleX(-1)}
+.runner.ahead .fi{display:inline-block;animation:gallop .45s ease-in-out infinite alternate}@keyframes gallop{from{transform:translateY(0) rotate(-4deg)}to{transform:translateY(-3px) rotate(4deg)}}
+.fire{position:absolute;font-size:12px;pointer-events:none;animation:flick .6s ease-in-out infinite alternate}.fire.f1{left:-10px;top:-8px}.fire.f2{left:14px;top:-11px;animation-delay:.25s}@keyframes flick{from{transform:scale(.8);opacity:.75}to{transform:scale(1.2) translateY(-3px);opacity:1}}
+@media (prefers-reduced-motion:reduce){.runner .fi,.fire{animation:none}}
 </style>
 </head>
 <body>
@@ -350,15 +358,18 @@ function lineChart(id, lines, opt) {
   if (opt.marks) opt.marks.forEach(function (m) { var yy = Y(m.v); if (yy > pt && yy < H - pb) out += '<line x1="0" x2="' + W + '" y1="' + yy + '" y2="' + yy + '" stroke="' + (m.color || 'var(--warn)') + '" stroke-dasharray="3 3" stroke-width="1" vector-effect="non-scaling-stroke"/>'; });
   out += '<line id="' + id + 'c" x1="0" x2="0" y1="' + pt + '" y2="' + (H - pb) + '" stroke="var(--tx3)" stroke-width="1" opacity="0" vector-effect="non-scaling-stroke"/></svg></div>';
   var first = lines[0].pts[0][0], last = lines[0].pts[lines[0].pts.length - 1][0];
-  out += '<div class="legend" style="justify-content:space-between;margin-left:44px"><span class="tiny">' + dshort(first) + '</span><span class="tiny" id="' + id + 't"></span><span class="tiny">' + dshort(last) + '</span></div>';
+  out += '<div class="ctip tiny" id="' + id + 't" style="min-height:34px;margin:4px 0 0 44px;line-height:1.5">Touch or hover the chart to read every line on a date</div><div class="legend" style="justify-content:space-between;margin-left:44px"><span class="tiny">' + dshort(first) + '</span><span class="tiny">' + dshort(last) + '</span></div>';
   setTimeout(function () {
     var svg = document.getElementById(id); if (!svg) return;
-    var move = function (ev) { var r = svg.getBoundingClientRect(), t = ev.touches ? ev.touches[0] : ev, fx = Math.max(0, Math.min(1, (t.clientX - r.left) / r.width)), day = x0 + fx * (x1 - x0), L = lines[0].pts, best = 0;
-      for (var i = 0; i < L.length; i++) if (V8_dayNum(L[i][0]) <= day) best = i;
-      var c = document.getElementById(id + 'c'), cx = opt.tip ? X(new Date(Math.round(day) * 86400000).toISOString().slice(0, 10)) : X(L[best][0]); c.setAttribute('x1', cx); c.setAttribute('x2', cx); c.setAttribute('opacity', 1);
-      document.getElementById(id + 't').innerHTML = opt.tip ? opt.tip(new Date(Math.round(day) * 86400000).toISOString().slice(0, 10)) : dshort(L[best][0]) + ' · ' + lines.map(function (l) { var p = l.pts[best]; return p && p[1] !== null ? (opt.fmt || usd)(p[1]) : ''; }).filter(Boolean).join(' / '); };
+    var hint = document.getElementById(id + 't').innerHTML;
+    var ISO = function (day) { return new Date(Math.round(day) * 86400000).toISOString().slice(0, 10); };
+    var atOrBefore = function (pts, d) { var b = null; for (var i = 0; i < pts.length; i++) { if (pts[i][0] <= d) { if (pts[i][1] !== null && pts[i][1] !== undefined && !isNaN(pts[i][1])) b = pts[i]; } else break; } return b; };
+    var all = function (d) { var f = opt.fmt || usd; return '<b>' + dshort(d) + '</b> ' + lines.map(function (l) { var p = atOrBefore(l.pts, d); if (!p || d < l.pts[0][0]) return ''; return '<span style="margin-right:10px;white-space:nowrap"><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + l.color + ';margin-right:4px"></i>' + (l.name ? esc(l.name) + ' ' : '') + '<b>' + f(p[1]) + '</b></span>'; }).filter(Boolean).join(''); };
+    var move = function (ev) { var r = svg.getBoundingClientRect(), t = ev.touches ? ev.touches[0] : ev, fx = Math.max(0, Math.min(1, (t.clientX - r.left) / r.width)), day = x0 + fx * (x1 - x0), ds = ISO(day);
+      var c = document.getElementById(id + 'c'), cx = X(ds); c.setAttribute('x1', cx); c.setAttribute('x2', cx); c.setAttribute('opacity', 1);
+      document.getElementById(id + 't').innerHTML = opt.tip ? opt.tip(ds) : all(ds); };
     svg.addEventListener('touchmove', move, { passive: true }); svg.addEventListener('touchstart', move, { passive: true }); svg.addEventListener('mousemove', move);
-    svg.addEventListener('mouseleave', function () { document.getElementById(id + 'c').setAttribute('opacity', 0); document.getElementById(id + 't').textContent = ''; });
+    svg.addEventListener('mouseleave', function () { document.getElementById(id + 'c').setAttribute('opacity', 0); document.getElementById(id + 't').innerHTML = hint; });
   }, 0);
   return out;
 }
@@ -397,7 +408,22 @@ function colify() {
 function go(tab, arg) { S.ticks = 0; $('#main').classList.toggle('cols', tab === 'home' || tab === 'plan'); S.tab = tab; S.stack = []; S.arg = arg; drawTabs(); var m = $('#main'); m.scrollTop = 0; (SCREENS[tab] || SCREENS.home)(arg); }
 function push(name, arg) { S.stack.push({ tab: S.tab, name: name, arg: arg }); $('#main').scrollTop = 0; SCREENS[name](arg); }
 function back() { if (S.stack.length > 1) { S.stack.pop(); var s = S.stack[S.stack.length - 1]; SCREENS[s.name](s.arg); } else { S.stack = []; go(S.tab); } }
-function refreshBtn() { return '<button class="iconbtn" onclick="go(S.tab)" aria-label="Refresh">' + ico('refresh') + '</button>'; }
+function refreshBtn() { return '<button class="iconbtn' + (S.refreshing ? ' spinning' : '') + '" onclick="refreshNow()" aria-label="Refresh">' + ico('refresh') + '</button>'; }
+/* the refresh button: asks the server for fresh numbers, spins while it works, and says when it is done (or why it could not) */
+function refreshNow() {
+  if (S.refreshing) return;
+  S.refreshing = true; var set = function (on) { [].forEach.call(document.querySelectorAll('[aria-label="Refresh"]'), function (b) { b.classList.toggle('spinning', on); }); };
+  set(true); toast('Refreshing prices and numbers…'); S.force = true; try { clearCache(); } catch (e) {} S.live = null;
+  var top = S.stack.length ? S.stack[S.stack.length - 1] : null, t0 = Date.now(), err = null, onErr = function (ev) { err = (ev && ev.reason && ev.reason.message) || 'a problem'; };
+  window.addEventListener('unhandledrejection', onErr);
+  if (top && SCREENS[top.name]) SCREENS[top.name](top.arg); else go(S.tab, S.arg);
+  var iv = setInterval(function () {
+    if (PENDING > 0 && Date.now() - t0 < 90000) return;
+    clearInterval(iv); window.removeEventListener('unhandledrejection', onErr); S.refreshing = false; set(false);
+    var up = S.meta && S.meta.updating, hh = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    toast(err ? 'Could not refresh fully: ' + err : (Date.now() - t0 >= 90000 ? 'Still working on the server; it will update by itself' : (up ? 'Updated ' + hh + ' · the server is still rebuilding screens' : 'Updated ' + hh + ' · numbers are fresh')));
+  }, 400);
+}
 function staleNote(o, d) { return o && o.cached ? '<div id="stalenote" class="tiny" style="text-align:center;margin:4px 0 10px">Saved copy from ' + (o.t ? new Date(o.t).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '') + ' · updating…</div>' : ''; }
 
 /* ---------- pull to refresh ---------- */
@@ -482,12 +508,12 @@ function drawHome(o, meta) {
     var inv = [], cum = 0, ix = {}; o.flows.forEach(function (f) { if (f[2] !== 'INCOME_OUT') ix[f[0]] = (ix[f[0]] || 0) - f[1]; });
     var all = nav.map(function (r) { cum += (ix[r[0]] || 0); return [r[0], cum]; }); var invMap = {}; all.forEach(function (r) { invMap[r[0]] = r[1]; });
     h += '<div class="card">' + homeCmpBar() + '<div class="seg" style="margin-bottom:8px"><button class="' + (HOME.view === 'value' ? 'on' : '') + '" onclick="HOME.view=\'value\';drawHome(S.ov)">Value</button><button class="' + (HOME.view === 'return' ? 'on' : '') + '" onclick="HOME.view=\'return\';drawHome(S.ov)">Return</button></div>';
-    if (HOME.view === 'value') h += lineChart('c1', [{ pts: sub.map(function (r) { return [r[0], r[1]]; }), color: 'var(--acc)', fill: true }, { pts: sub.map(function (r) { return [r[0], invMap[r[0]]]; }), color: 'var(--tx3)', w: 1.5, dash: true }]) + '<div class="legend"><span><i style="background:var(--acc)"></i>Value</span><span><i style="background:var(--tx3)"></i>Money put in</span></div>';
+    if (HOME.view === 'value') h += lineChart('c1', [{ name: 'Value', pts: sub.map(function (r) { return [r[0], r[1]]; }), color: 'var(--acc)', fill: true }, { name: 'Money in', pts: sub.map(function (r) { return [r[0], invMap[r[0]]]; }), color: 'var(--tx3)', w: 1.5, dash: true }]) + '<div class="legend"><span><i style="background:var(--acc)"></i>Value</span><span><i style="background:var(--tx3)"></i>Money put in</span></div>';
     else { h += homeReturn(o, sub, from); if ((HOME.cmp.length && HOME.cmp.some(function (s) { return !S.benchTried[s]; })) || (HOME.accts && !S.navacct && !S.navTried)) { var again = function () { if (S.tab === 'home' && !S.stack.length && S.ov) drawHome(S.ov); }; if (HOME.cmp.length) hLoadBench(again); if (HOME.accts) hLoadNav(again); } }
     if (sel) h += '<div class="grid2" style="margin-top:12px"><div class="stat"><div class="k">Return</div><div class="v ' + cls(sel.twrPct) + '">' + pc(sel.twrPct, 1) + '</div><div class="tiny">' + (sel.twrAnnualPct !== null ? pc(sel.twrAnnualPct, 1) + ' a year' : sel.days + ' days: not annualised') + '</div></div><div class="stat"><div class="k">Gain</div><div class="v ' + cls(sel.gainUsd) + '">' + usdS(sel.gainUsd) + '</div><div class="tiny">' + (sel.xirrReliable ? 'XIRR ' + pc(sel.xirrPct, 1) : 'XIRR needs a year') + '</div></div></div>';
     h += '</div>';
     h += '<div class="card"><h3>Since you started</h3>' + kv('Put in (net)', usd(o.netMoneyInUsd)) + kv('Total gain', '<span class="' + cls(o.totalGainUsd) + '">' + usdS(o.totalGainUsd) + '</span>') + kv('Money-weighted (XIRR)', pc(o.xirrPct, 2)) + kv('Time-weighted', pc(o.twrPct, 1) + ' · ' + pc(o.twrAnnualPct, 1) + ' a year') + kv('Unrealised', '<span class="' + cls(o.unrealizedUsd) + '">' + usdS(o.unrealizedUsd) + '</span>') + kv('Realised', '<span class="' + cls(o.realizedUsd) + '">' + usdS(o.realizedUsd) + '</span>') + kv('Income received', usd(o.incomeUsd)) + (o.taxEstUsd !== null && o.taxEstUsd !== undefined && o.totalGainUsd !== null ? kv('Estimated Indian tax', '<span class="neg">−' + usd(o.taxEstUsd) + '</span>') + (o.xirrAfterTaxPct !== null && o.xirrAfterTaxPct !== undefined ? kv('Money-weighted (XIRR) after tax', pc(o.xirrAfterTaxPct, 2)) : '') + kv('Total gain after tax', '<span class="' + cls(o.totalGainUsd - o.taxEstUsd) + '">' + usdS(o.totalGainUsd - o.taxEstUsd) + '</span>') + '<div class="tiny" style="margin-top:4px">Tax is an estimate on your Indian gains and dividends, summed over all years (US, UAE and crypto gains have no tax for you). Returns above are before tax. After-tax XIRR treats the tax of each year as paid on 15 March of that year.</div>' : '') + (o.optionsOtherUsd ? kv('Options and other', '<span class="' + cls(o.optionsOtherUsd) + '">' + usdS(o.optionsOtherUsd) + '</span>') : '') + '</div>';
-    var j = o.journey; if (j) h += journeyCard(j) + homeCharts(o);
+    var j = o.journey; if (j) h += journeyCard(j) + idleCard(o) + homeCharts(o);
     if (o.loan) h += loanCard(o.loan);
   }
   h += '<div class="card"><h3>Accounts</h3>' + o.accounts.map(function (a) { return '<div class="row"><div class="avatar">' + esc(String(a.broker || '').slice(0, 3).toUpperCase()) + '</div><div class="grow"><div class="t">' + esc(a.broker) + ' · ' + esc(a.currency) + '</div><div class="s">' + esc(a.acct) + '</div></div><div class="r"><div class="t num">' + (a.currency && a.currency !== 'USD' && a.fxPerUsd ? mny((a.investedUsd + a.cashUsd) * a.fxPerUsd, a.currency) + '<div class="usd2">' + usd(a.investedUsd + a.cashUsd) + '</div>' : usd(a.investedUsd + a.cashUsd)) + '</div><div class="s">cash ' + (a.currency && a.currency !== 'USD' && a.fxPerUsd ? mny(a.cashUsd * a.fxPerUsd, a.currency) : usd(a.cashUsd)) + '</div></div></div>'; }).join('') + '</div>';
@@ -498,11 +524,34 @@ function customPeriod() {
   var o = S.ov, f = o.series[0][0], t = o.asOf;
   sheet('<h2>Custom period</h2><p class="mut sm">Pick any two dates. The return is worked out from your daily history.</p><label class="field"><span>From</span><input type="date" id="cf" value="' + (HOME.custom ? HOME.custom[0] : V8_addDays(t, -90)) + '" min="' + f + '" max="' + t + '"></label><label class="field"><span>To</span><input type="date" id="ct" value="' + t + '" min="' + f + '" max="' + t + '"></label><div class="btns"><button class="btn" onclick="HOME.custom=[$(\'#cf\').value,$(\'#ct\').value];HOME.period=\'CUSTOM\';closeSheet();drawHome(S.ov)">Show</button></div>');
 }
+function milestoneVisual(realPct, pcts) {
+  var stops = [{ r: 0, v: 0 }].concat(pcts.map(function (p, i) { return { r: p, v: (i + 1) / pcts.length * 100 }; })), c = Math.max(0, Math.min(100, realPct));
+  for (var i = 0; i < stops.length - 1; i++) { var a = stops[i], b = stops[i + 1]; if (c >= a.r && c <= b.r) { var f = b.r === a.r ? 0 : (c - a.r) / (b.r - a.r); return a.v + f * (b.v - a.v); } }
+  return 100;
+}
+/* the runner: a horse when ahead of the plan, a jogger on pace, a turtle when behind; tap it for the gap */
+function runnerTap(label) { toast(label); }
+function runnerHtml(j, vis) {
+  var gap = j.gapToPlan, pg = (j.planValueToday > 0 && gap !== null && gap !== undefined) ? gap / j.planValueToday * 100 : 0, band = j.paceBandPct !== undefined ? j.paceBandPct : 1;
+  var mood = (gap === null || gap === undefined) ? 'pace' : pg > band ? 'ahead' : pg < -band ? 'behind' : 'pace', face = mood === 'ahead' ? '🐎' : mood === 'behind' ? '🐢' : '🏃';
+  var label = (gap === null || gap === undefined) ? 'No plan yet' : (gap >= 0 ? usd(gap) + ' ahead of the plan path' : usd(-gap) + ' behind the plan path');
+  var fire = mood === 'ahead' ? '<span class="fire f1">🔥</span><span class="fire f2">🔥</span>' : '';
+  return '<div class="runner fig ' + mood + '" style="left:' + Math.max(2, Math.min(98, vis)) + '%" onclick="event.stopPropagation();runnerTap(\'' + label.replace(/'/g, '') + '\')" title="' + esc(label) + '"><span class="fi"><span class="fl">' + face + '</span></span>' + fire + '</div>';
+}
 function journeyCard(j) {
-  var ms = (j.milestones || []).map(function (m) { return '<span class="badge ' + (m.passed ? 'OK' : '') + '">' + (m.passed ? '✓ ' : '') + usd(m.amount) + '</span>'; }).join(' ');
-  var gap = j.gapToPlan;
-  return '<div class="card tap" onclick="go(\'plan\')"><h3>Journey to ' + usd(j.goal) + ' · ' + dshort(j.targetDate) + '</h3><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="num" style="font-size:26px;font-weight:700">' + pcp(j.progressPct) + '</span><span class="mut sm">' + j.monthsLeft + ' months left</span></div><div class="cbar" style="margin:8px 0 12px;height:10px"><i style="width:' + Math.min(100, j.progressPct) + '%"></i></div>'
-    + kv('Plan says you should be at', usd(j.planValueToday)) + kv('You are', '<span class="' + cls(gap) + '">' + (gap >= 0 ? usd(gap) + ' ahead' : usd(-gap) + ' behind') + '</span>') + kv('At your current pace (' + pcp(j.rateUsedPct) + ')', usd(j.projectedAtCurrentRate)) + kv('Return you need from here', pcp(j.requiredReturnPct)) + kv('Monthly you need at that pace', usd(j.requiredMonthlyAtRate)) + '<div style="margin-top:10px">' + ms + '</div></div>';
+  var ms = (j.milestones || []).slice().sort(function (a, b) { return a.pct - b.pct; }), pcts = ms.map(function (m) { return m.pct; }), vis = milestoneVisual(j.progressPct, pcts.length ? pcts : [100]), flagCol = ['#2DBFAE', '#4F8FE8', '#B98FE0', '#D67AB1'];
+  var track = '<div class="track-wrap"><div class="track"><div class="track-fill" style="width:' + vis + '%"></div></div>' + ms.map(function (m, i) {
+    var l = milestoneVisual(m.pct, pcts), last = i === ms.length - 1, goal = m.pct >= 100;
+    return '<div class="pole ' + (m.passed ? 'passed ' : '') + (goal ? 'goal' : '') + '" style="left:' + l + '%;--fc:' + flagCol[i % flagCol.length] + '"></div><div class="mlabel ' + (last ? 'last' : '') + '" style="left:' + l + '%"><b>' + m.pct + '%</b>' + kfmt(m.amount) + '</div>';
+  }).join('') + runnerHtml(j, vis) + '</div>';
+  var gap = j.gapToPlan, st = j.stepUpPct || 0, nf = function (v) { return v === null || v === undefined ? '–' : usd(v); };
+  var need = '<div class="note" style="margin:8px 0 4px"><b>What you need to put in each month</b> (from today to ' + dshort(j.targetDate) + ', your own plan is ' + usd(j.monthlyPlan) + ')</div>'
+    + '<table class="t"><tr><th></th><th class="r">Flat</th><th class="r">+' + pcp(st, 0) + ' each January</th></tr>'
+    + '<tr><td>If you earn ' + pcp(j.targetCagr, 0) + ' (the plan)</td><td class="r num">' + nf(j.neededFlatAtTarget) + '</td><td class="r num">' + nf(j.neededStepAtTarget) + '</td></tr>'
+    + '<tr><td>If you earn ' + (j.trail12Pct === null || j.trail12Pct === undefined ? '–' : pc(j.trail12Pct, 1)) + ' (last 12 months)</td><td class="r num">' + nf(j.neededFlatAtTrail) + '</td><td class="r num">' + nf(j.neededStepAtTrail) + '</td></tr></table>'
+    + '<div class="tiny" style="margin-top:4px">With ' + usd(j.monthlyPlan) + ' flat you reach ' + usd(j.projectedAtTargetRate) + ' at ' + pcp(j.targetCagr, 0) + (j.projectedFlatAtTrail !== null && j.projectedFlatAtTrail !== undefined ? ' and ' + usd(j.projectedFlatAtTrail) + ' at the last-12-month return' : '') + '. The yearly rise starts next January and only affects future months. Change it in Settings (contribution_stepup_pct); blank means 5%.</div>';
+  return '<div class="card tap" onclick="go(\'plan\')"><h3>Journey to ' + usd(j.goal) + ' · ' + dshort(j.targetDate) + '</h3><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="num" style="font-size:26px;font-weight:700">' + pcp(j.progressPct) + '</span><span class="mut sm">' + j.monthsLeft + ' months left</span></div>' + track
+    + kv('Plan says you should be at', usd(j.planValueToday)) + kv('You are', '<span class="' + cls(gap) + '">' + (gap >= 0 ? usd(gap) + ' ahead' : usd(-gap) + ' behind') + '</span>') + kv('At your pace so far (' + pcp(j.rateUsedPct) + ')', usd(j.projectedAtCurrentRate)) + kv('Return you need from here', pcp(j.requiredReturnPct)) + need + '</div>';
 }
 function loanCard(l) {
   return '<div class="card"><h3>Loan (a catalyst, not part of the goal)</h3>' + kv('Borrowed', 'AED ' + num(l.principalAed, 0) + ' (' + usd(l.principalUsd) + ')') + kv('Interest', pcp(l.ratePct) + ' · AED ' + num(l.interestAedPerYear, 0) + ' a year, paid upfront') + kv('Next interest due', dshort(l.nextInterestDue)) + (l.sinceDrawDays ? kv('Portfolio since the draw (' + l.sinceDrawDays + ' days)', '<span class="' + cls(l.portfolioTwrSinceDrawPct) + '">' + pc(l.portfolioTwrSinceDrawPct, 1) + '</span>') + '<div class="note">Interest of ' + usd(l.interestPaidUsd) + ' is about ' + pcp(l.interestPaidUsd / l.principalUsd * 100) + ' of the amount borrowed. Too early to judge: the portfolio needs to beat that over a full year.</div>' : '') + '</div>';
@@ -618,7 +667,7 @@ function holdSummary(rows) {
   }
   if (incm && cl) incm.rows.forEach(function (r) { var k = r.acct + '|' + r.asset; if (keys.indexOf(k) >= 0 || !dimsOf[k]) return; if (!seen[k]) return; soldInc += r.usd; });
   var un = val - cost, realAll = real + soldGain, incAll = inc + soldInc, tot = un + realAll + incAll, x = xirrFor(xkeys, val, S.hold.asOf), share = S.ov ? val / (S.ov.valueUsd + (liveDelta() || 0)) * 100 : null;
-  return sumBox([['Value', usd(val), '', n + ' position' + (n === 1 ? '' : 's') + (share !== null ? ' · ' + pcp(share) + ' of portfolio' : '')], ['Today', usdS(day), cls(day), pc(dayBase ? day / dayBase * 100 : 0, 2)], ['Unrealised', usdS(un), cls(un), pc(cost > 0 ? un / cost * 100 : null, 1) + ' on cost ' + usd(cost)], ['Total return', usdS(tot), cls(tot), 'all time: realised ' + usdS(realAll) + (soldN ? ' (incl. ' + soldN + ' sold position' + (soldN === 1 ? '' : 's') + ')' : '') + ' and income ' + usd(incAll) + ((!cl || !incm) ? ' · loading sold positions…' : '')], ['XIRR', x ? pc(x.x, 1) : '–', x ? cls(x.x) : '', x ? (x.short ? 'under a year: treat with care' : (HLD.incSold ? 'incl. ' + soldN + ' sold position' + (soldN === 1 ? '' : 's') + ' (realised ' + usdS(soldGain) + ')' : 'positions still held, incl. past sales and income')) : (HLD.incSold && !S.mem.closed ? 'loading sold positions…' : 'needs money in and out')], ['Cost of what you hold', usd(cost), '', (function () { var ov = S.ov; if (!ov || ov.netMoneyInUsd === undefined || ov.netMoneyInUsd === null || filtAny() || HLD.q) return 'what you paid for these positions'; var own = Math.max(0, ov.netMoneyInUsd - (ov.cashUsd || 0)), re = cost - own; return re > 0 ? usd(own) + ' of your own money still invested + ' + usd(re) + ' of profits you reinvested' : 'what you paid for these positions'; })()]]);
+  return sumBox([['Value', usd(val), '', n + ' position' + (n === 1 ? '' : 's') + (share !== null ? ' · ' + pcp(share) + ' of portfolio' : '')], ['Today', usdS(day), cls(day), pc(dayBase ? day / dayBase * 100 : 0, 2)], ['Unrealised', usdS(un), cls(un), pc(cost > 0 ? un / cost * 100 : null, 1) + ' on cost ' + usd(cost)], ['Total return', usdS(tot), cls(tot), 'all time: realised ' + usdS(realAll) + (soldN ? ' (incl. ' + soldN + ' sold position' + (soldN === 1 ? '' : 's') + ')' : '') + ' and income ' + usd(incAll) + ((!cl || !incm) ? ' · loading sold positions…' : '')], ['XIRR', x ? pc(x.x, 1) : '–', x ? cls(x.x) : '', x ? (x.short ? 'under a year: treat with care' : (HLD.incSold ? 'incl. ' + soldN + ' sold position' + (soldN === 1 ? '' : 's') + ' (realised ' + usdS(soldGain) + ')' : 'open positions only; past sales are not included (tick the box above to add them)')) : (HLD.incSold && !S.mem.closed ? 'loading sold positions…' : 'needs money in and out')], ['Cost of what you hold', usd(cost), '', (function () { var ov = S.ov; if (!ov || ov.netMoneyInUsd === undefined || ov.netMoneyInUsd === null || filtAny() || HLD.q) return 'what you paid for these positions'; var own = Math.max(0, ov.netMoneyInUsd - (ov.cashUsd || 0)), re = cost - own; return re > 0 ? usd(own) + ' of your own money still invested + ' + usd(re) + ' of profits you reinvested' : 'what you paid for these positions'; })()]]);
 }
 var HSORT = { value: function (r) { return r.valueUsd; }, gain: function (r) { return r.unrealizedUsd; }, pct: function (r) { return r.unrealizedPct; }, day: function (r) { return r.dayPct; }, weight: function (r) { return r.weightPct; }, name: function (r) { return r.asset; }, acct: function (r) { return r.acct + r.asset; }, sector: function (r) { return (r.sector || '') + r.asset; } };
 function holdSort(k) { setSort(HLD, k, (k === 'name' || k === 'acct' || k === 'sector') ? 1 : -1); drawHold(); }
@@ -695,13 +744,14 @@ SCREENS.alerts = function () {
 function drawAlerts(d) {
   var rows = d.rows.filter(function (r) { return r.state === 'NEW' || r.state === 'SNOOZED' || r.state === 'ACK'; });
   var open = rows.filter(function (r) { return r.state === 'NEW'; }), rest = rows.filter(function (r) { return r.state !== 'NEW'; });
-  var h = (open.length ? '' : '<div class="card"><div class="empty">✓ Nothing needs you right now</div></div>');
+  var h = (open.length ? '<div class="btns" style="margin:0 0 10px"><button class="btn sm ghost" onclick="alertsAckAll()">✓ Mark all as read</button></div>' : '<div class="card"><div class="empty">✓ Nothing needs you right now</div></div>');
   h += open.map(alertCard).join('');
   if (rest.length) h += '<h3 style="margin:18px 4px 8px;font-size:12px;color:var(--tx3);text-transform:uppercase">Seen or snoozed</h3>' + rest.slice(0, 15).map(function (r) { return alertCard(r, true); }).join('');
   $('#main').innerHTML = h;
 }
+function alertsAckAll() { api('alert_act', { act: 'ack_all' }).then(function (r) { toast(r.message); clearCache(); S.force = true; SCREENS.alerts(); }).catch(function (e) { toast(e.message); }); }
 function alertCard(a, quiet) {
-  return '<div class="card alert ' + esc(a.severity) + '" style="' + (quiet ? 'opacity:.6' : '') + '"><div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span class="badge ' + esc(a.severity) + '">' + esc(a.severity) + '</span><span class="tiny">' + esc(a.category || '') + ' · ' + ago(a.date) + (a.state === 'SNOOZED' ? ' · snoozed to ' + dshort(a.snoozeUntil) : '') + '</span></div><div style="font-weight:600">' + esc(a.message) + '</div>'
+  return '<div class="card alert ' + esc(a.severity) + '" style="' + (quiet ? 'opacity:.6' : '') + '"><div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span class="badge ' + esc(a.severity) + '">' + esc(a.severity) + '</span><span class="tiny">' + esc(a.category || '') + ' · ' + ago(a.date) + (a.repeats ? ' · repeated ' + (a.repeats + 1) + ' days' : '') + (a.state === 'SNOOZED' ? ' · snoozed to ' + dshort(a.snoozeUntil) : '') + '</span></div><div style="font-weight:600">' + esc(a.message) + '</div>'
     + (quiet ? '' : '<div class="btns">' + a.actions.map(function (x) { return '<button class="btn sm ' + (x.kind === 'ghost' ? 'ghost' : '') + '" onclick="alertAct(\'' + esc(a.id) + '\',\'' + x.id + '\',\'' + (x.go || '') + '\')">' + esc(x.label) + '</button>'; }).join('') + '</div>') + '</div>';
 }
 function alertAct(id, act, dest) {
@@ -1123,6 +1173,18 @@ SCREENS.wheel = function () {
   if (!isAll()) { $('#main').innerHTML = '<div class="empty">The wheel board is for the owner.</div>'; return; }
   load('wheel', {}, function (d) { WH.d = d; drawWheel(d); }, S.force); S.force = false;
 };
+function wheelIdleNote(d) {
+  var i = d.idle, pm = d.premium, h = '';
+  if (i && i.idleUsd > 0) h += '<div class="note" style="margin-top:6px">Idle cash of ' + usd(i.idleUsd) + ' (' + pcp(i.idlePctOfAccounts, 0) + ' of the account) earns about ' + pcp(i.yieldPct, 1) + ' against your ' + pcp(i.targetPct, 0) + ' target: roughly <b>' + usd(i.costPerYearUsd) + ' a year</b> of missed return if it stays idle. Putting it to work in puts or shares closes that gap.</div>';
+  if (pm) h += '<div class="note" style="margin-top:6px">Premium kept this month: <b>' + usd(pm.monthUsd) + '</b> (' + usd(pm.soldUsd) + ' sold' + (pm.boughtBackUsd ? ', ' + usd(pm.boughtBackUsd) + ' bought back' : '') + ')' + (pm.targetUsd > 0 ? ' · target ' + usd(pm.targetUsd) + ' (' + pcp(pm.pctOfTarget, 0) + ')' : ' · set wheel_premium_target_usd_month in Settings to track a monthly target') + '</div>';
+  return h;
+}
+function idleCard(o) {
+  var i = o.idle; if (!i || !isAll()) return '';
+  var warn = i.idlePctOfAccounts >= i.alertPct;
+  return '<div class="card tap" onclick="go(\'wheel\')"><h3>Cash working in your options account</h3>' + kv('Idle (free for new puts)', '<span class="' + (warn ? 'neg' : '') + '">' + usd(i.idleUsd) + '</span>') + kv('Tied up by open puts', usd(i.committedUsd)) + kv('Kept as reserve', usd(i.reserveUsd))
+    + '<div class="tiny" style="margin-top:6px">' + (i.idleUsd > 0 ? 'At ' + pcp(i.yieldPct, 1) + ' interest against your ' + pcp(i.targetPct, 0) + ' target, idle cash costs about ' + usd(i.costPerYearUsd) + ' a year. ' : 'Nothing idle. ') + 'Tap to open the Wheel.</div></div>';
+}
 function drawWheel(d) {
   var h = '';
   /* 1 cash */
@@ -1131,7 +1193,7 @@ function drawWheel(d) {
     h += '<div class="row"><div class="grow"><div class="t">' + esc(c.broker) + ' <span class="tiny">' + esc(c.acct) + '</span></div><div class="s" style="white-space:normal">cash ' + usd(c.cashUsd) + ' · in ' + c.putsOpen + ' open put' + (c.putsOpen === 1 ? '' : 's') + ' ' + usd(c.committedUsd) + ' · kept back ' + usd(c.reserveUsd) + '</div></div><div class="r"><b>' + usd(c.freeUsd) + '</b><div class="tiny">free</div></div></div>';
   });
   if (!d.capital.length) h += '<div class="empty">No options account is set. Set opt_accounts in Settings.</div>';
-  h += '<div class="note">Free = cash, minus what open puts tie up, minus ' + d.rules.reservePct + '% of the account kept as a reserve (setting opt_cash_reserve_pct).</div></div>';
+  h += '<div class="note">Free = cash, minus what open puts tie up, minus ' + d.rules.reservePct + '% of the account kept as a reserve (setting opt_cash_reserve_pct).</div>' + wheelIdleNote(d) + '</div>';
   h += fndCard();
   /* 2 open puts */
   h += '<div class="card"><h3>Open puts' + (d.puts.length ? ' · ' + d.puts.length : '') + '</h3>';
@@ -1260,7 +1322,7 @@ function fndOpen(i, held) {
     + kv('Chance of assignment', pcp(c.pAssignPct) + ' <span class="tiny">(worked out from the price: implied volatility ' + pcp(c.ivPct) + ', delta ' + num(c.delta, 2) + ')</span>')
     + kv('Open contracts · volume', num(c.oi, 0) + ' · ' + num(c.volume, 0))
     + kv('Your own-below price', c.ownBelow ? num(c.ownBelow, 2) + (c.belowOwn ? ' <span class="tiny">strike is at or below it</span>' : ' <span class="tiny neg">strike is above it</span>') : 'not set')
-    + kv('Overall score', '<b>' + num(c.overall, 0) + '</b>')
+    + kv('Overall score', '<b>' + num(c.overall, 0) + '</b>') + (c.fit && c.fit.notes && c.fit.notes.length ? '<div class="tiny" style="color:var(--warn)">Portfolio fit: ' + c.fit.notes.map(esc).join('; ') + '. Score before this: ' + num(c.overallBase, 0) + '</div>' : '')
     + kv('Suitability', num(c.suitability, 0) + ' <span class="tiny">income ' + c.scores.yield + ' · safety ' + c.scores.safety + ' · liquidity ' + c.scores.liquidity + ' · fit ' + c.scores.fit + '</span>')
     + kv('Your conviction', c.conviction === null ? 'not set' : num(c.conviction, 0) + ' <span class="tiny">out of 10</span>');
   o += '<div style="margin:8px 0">' + whBadge(c.check.status) + '</div>' + whItems(c.check);
@@ -1517,11 +1579,11 @@ function homeReturn(o, sub, from) {
   if (HOME.accts && S.navacct) { var ai = acctIndex(o).filter(function (r) { return r[0] >= from; }); var a0 = ai.length ? ai[0][1] : 1; port = ai.map(function (r) { return [r[0], (r[1] / a0 - 1) * 100]; }); label = 'Selected accounts (' + HOME.accts.join(', ') + ')' + (ACCT_SKIP ? ' · ' + ACCT_SKIP + ' day(s) where deposits and values did not match were left flat' : ''); }
   else { var b0 = sub.length ? sub[0][2] : 1; port = sub.map(function (r) { return [r[0], (r[2] / b0 - 1) * 100]; }); }
   if (!port.length) port = sub.map(function (r) { return [r[0], 0]; });
-  var lines = [{ pts: port, color: 'var(--acc)', fill: !HOME.cmp.length }], leg = ['<span><i style="background:var(--acc)"></i>' + (HOME.accts ? 'Your accounts' : 'You') + '</span>'], rows = [[HOME.accts ? 'Your accounts' : 'You', port.length ? port[port.length - 1][1] : null, null]], last = port.length ? port[port.length - 1][0] : from;
+  var lines = [{ name: HOME.accts ? 'Your accounts' : 'You', pts: port, color: 'var(--acc)', fill: !HOME.cmp.length }], leg = ['<span><i style="background:var(--acc)"></i>' + (HOME.accts ? 'Your accounts' : 'You') + '</span>'], rows = [[HOME.accts ? 'Your accounts' : 'You', port.length ? port[port.length - 1][1] : null, null]], last = port.length ? port[port.length - 1][0] : from;
   HOME.cmp.forEach(function (sym, k) {
     var s = S.bench && S.bench.series[sym]; if (!s) return; var pts = s.filter(function (r) { return r[0] >= from && r[0] <= last; }); if (pts.length < 2) return;
     var base = pts[0][1], name = ((S.benchCat || []).filter(function (c) { return c.sym === sym; })[0] || { name: sym }).name, col = BC[k % BC.length];
-    lines.push({ pts: pts.map(function (r) { return [r[0], (r[1] / base - 1) * 100]; }), color: col, w: 1.6 }); leg.push('<span><i style="background:' + col + '"></i>' + esc(name) + '</span>');
+    lines.push({ name: name, pts: pts.map(function (r) { return [r[0], (r[1] / base - 1) * 100]; }), color: col, w: 1.6 }); leg.push('<span><i style="background:' + col + '"></i>' + esc(name) + '</span>');
     rows.push([name, (pts[pts.length - 1][1] / base - 1) * 100, col]);
   });
   var h = lineChart('c1', lines, { fmt: function (v) { return pc(v, 1); }, yfmt: function (v) { return pc(v, 0); } }) + '<div class="legend">' + leg.join('') + '</div>';
@@ -1773,7 +1835,7 @@ function cfnOpen(i, held) {
     + kv('Your cost after premiums', b.adjustedPerShare ? num(b.adjustedPerShare, 2) : '–')
     + kv('If called away', (c.ifCalledUsd >= 0 ? '+' : '−') + usd(Math.abs(c.ifCalledUsd)) + ' <span class="tiny">on 100 shares, premium included</span>')
     + kv('Open contracts · volume', num(c.oi, 0) + ' · ' + num(c.volume, 0))
-    + kv('Overall score', '<b>' + num(c.overall, 0) + '</b>');
+    + kv('Overall score', '<b>' + num(c.overall, 0) + '</b>') + (c.fit && c.fit.notes && c.fit.notes.length ? '<div class="tiny" style="color:var(--warn)">Portfolio fit: ' + c.fit.notes.map(esc).join('; ') + '. Score before this: ' + num(c.overallBase, 0) + '</div>' : '');
   if (c.events && c.events.length) o += '<div style="margin-top:8px"><b class="sm">Dates inside this call</b>' + c.events.map(function (e) { return '<div class="tiny">' + dshort(e.date) + ' · ' + esc(e.label) + (e.kind === 'EXDIV' ? ' (a dividend before expiry can lead to early assignment)' : '') + '</div>'; }).join('') + '</div>';
   else if (!c.earningsKnown) o += '<div class="tiny neg" style="margin-top:8px">No earnings date came back from Yahoo for this stock. Check it before selling.</div>';
   o += '<div class="btns" style="flex-wrap:wrap">' + (can('trade_entry') ? '<button class="btn" onclick="cfnSell(' + held + ',' + i + ')">Record sale…</button>' : '') + '<button class="btn ghost" onclick="cfnCopy(' + held + ',' + i + ')">Copy order text</button>';
@@ -1857,7 +1919,7 @@ function rollOpen(i, held) {
     + kv('Yield on the new one', pcp(c.annYieldPct) + ' a year')
     + kv(o.type === 'PUT' ? 'Chance of assignment' : 'Chance of being called', pcp(o.type === 'PUT' ? c.pAssignPct : c.pCalledPct) + ' <span class="tiny">(implied volatility ' + pcp(c.ivPct) + ', delta ' + num(c.delta, 2) + ')</span>')
     + (o.type === 'PUT' ? kv('Cash tied up changes by', (c.cashChange > 0 ? '+' : c.cashChange < 0 ? '−' : '') + usd(Math.abs(c.cashChange))) : '')
-    + kv('Open contracts · volume', num(c.oi, 0) + ' · ' + num(c.volume, 0)) + kv('Overall score', '<b>' + num(c.overall, 0) + '</b>');
+    + kv('Open contracts · volume', num(c.oi, 0) + ' · ' + num(c.volume, 0)) + kv('Overall score', '<b>' + num(c.overall, 0) + '</b>') + (c.fit && c.fit.notes && c.fit.notes.length ? '<div class="tiny" style="color:var(--warn)">Portfolio fit: ' + c.fit.notes.map(esc).join('; ') + '. Score before this: ' + num(c.overallBase, 0) + '</div>' : '');
   if (c.events && c.events.length) h += '<div style="margin-top:8px"><b class="sm">Dates inside the new option</b>' + c.events.map(function (e) { return '<div class="tiny">' + dshort(e.date) + ' · ' + esc(e.label) + (e.kind === 'EXDIV' && o.type === 'CALL' ? ' (a dividend before expiry can lead to early assignment)' : '') + '</div>'; }).join('') + '</div>';
   else if (!c.earningsKnown) h += '<div class="tiny neg" style="margin-top:8px">No earnings date came back from Yahoo for this stock. Check it before rolling.</div>';
   h += '<div class="btns" style="flex-wrap:wrap">' + (can('trade_entry') ? '<button class="btn" onclick="rollForm(' + i + ',' + (held ? 1 : 0) + ')">Record roll…</button>' : '') + '<button class="btn ghost" onclick="rollList()">Back to the list</button></div>';
@@ -1984,11 +2046,11 @@ function drawRebal(d) {
   var o = d.options, mo = d.monthlyUsd;
   h += '<div class="card"><h3>This month\'s ' + usd(mo) + '</h3><div class="tiny" style="margin-bottom:8px">Three ways to use it. You do not have to invest every month' + (d.waitedUsd ? ' · ' + usd(d.waitedUsd) + ' is already waiting from earlier months' : '') + '.</div>';
   if (o.fill) h += '<div class="card" style="margin:8px 0;background:var(--card2)"><b>Fill the most underweight: ' + esc(o.fill.member) + '</b> <span class="tiny">(' + o.fill.driftPts + ' pts from target)</span>' + (o.fill.picks.length ? o.fill.picks.map(function (p) { return kv(esc(p.asset) + ' <span class="tiny">' + esc(p.name || '') + ' · score ' + p.score + '</span>', usd(p.amountUsd)); }).join('') : '<div class="tiny">' + esc(o.fill.note) + '</div>') + (can('review') ? '<div class="btns"><button class="btn sm" onclick="rbChoose(\'FILL\')">I will do this</button></div>' : '') + '</div>';
-  if (o.concentrate) { var c = o.concentrate; h += '<div class="card" style="margin:8px 0;background:var(--card2)"><b>Concentrate on ' + esc(c.asset) + '</b> <span class="badge OK">score ' + c.score + '</span><div class="tiny">' + esc(c.name || '') + ' · ' + Object.keys(c.parts).map(function (k) { return esc(k) + ' ' + c.parts[k]; }).join(' · ') + '</div>' + kv('Amount (this month' + (c.includesWaited ? ' + waiting money' : '') + ')', usd(c.amountUsd)) + '<div class="tiny">Limited to ' + usd(c.capUsd) + ' in one buy. Position and theme limits still apply.</div>' + (can('review') ? '<div class="btns"><button class="btn sm" onclick="rbChoose(\'CONCENTRATE\')">I will do this</button></div>' : '') + '</div>'; }
+  if (o.concentrate) { var c = o.concentrate; h += '<div class="card" style="margin:8px 0;background:var(--card2)"><b>Concentrate on ' + esc(c.asset) + '</b> <span class="badge OK">score ' + c.score + '</span> <button class="btn sm ghost" onclick="scoreCard(\'' + esc(c.asset) + '\')">How is this scored?</button><div class="tiny">' + esc(c.name || '') + ' · ' + Object.keys(c.parts).map(function (k) { return esc(k) + ' ' + c.parts[k]; }).join(' · ') + '</div>' + kv('Amount (this month' + (c.includesWaited ? ' + waiting money' : '') + ')', usd(c.amountUsd)) + '<div class="tiny">Limited to ' + usd(c.capUsd) + ' in one buy. Position and theme limits still apply.</div>' + (can('review') ? '<div class="btns"><button class="btn sm" onclick="rbChoose(\'CONCENTRATE\')">I will do this</button></div>' : '') + '</div>'; }
   else h += '<div class="tiny" style="margin:6px 0">No stock scores ' + o.compellingScore + ' or more with an intact thesis, so nothing is compelling enough to concentrate on right now.</div>';
   h += '<div class="card" style="margin:8px 0;background:var(--card2)"><b>Wait</b><div class="tiny">' + esc(o.wait.cashNote) + '</div>' + (can('review') ? '<div class="btns"><button class="btn ghost sm" onclick="rbChoose(\'WAIT\')">Wait this month</button></div>' : '') + '</div></div>';
   /* opportunities */
-  if (d.opps.length) h += '<div class="card"><h3>Best opportunities now</h3><div class="tiny" style="margin-bottom:4px">Thesis intact only. Score 0 to 100 from your entry zone, upside, conviction, distance below the high and the 200-day average, analyst rating and P/E against its own history. India is left out: it gets no new money.</div>' + d.opps.map(function (x) { return '<div class="row"><div class="avatar" style="font-size:11px">' + esc(x.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(x.asset) + (x.held ? '' : ' <span class="badge MANUAL">not held</span>') + (x.overGroup ? ' <span class="badge WARN">theme over target</span>' : '') + (x.onWheel ? ' <span class="badge">wheel</span>' : '') + '</div><div class="s">' + esc(x.region) + ' · ' + esc(x.group) + (x.zone ? ' · ' + esc(x.zone) : '') + '</div></div><div class="r"><div class="t num"><b>' + x.score + '</b></div></div></div>'; }).join('') + '</div>';
+  if (d.opps.length) h += '<div class="card"><h3>Best opportunities now</h3><div class="tiny" style="margin-bottom:4px">Thesis intact only. Score 0 to 100 from your entry zone, upside, conviction, distance below the high and the 200-day average, analyst rating and P/E against its own history. India is left out: it gets no new money.</div>' + d.opps.map(function (x) { return '<div class="row tap" onclick="scoreCard(\'' + esc(x.asset) + '\')"><div class="avatar" style="font-size:11px">' + esc(x.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(x.asset) + (x.held ? '' : ' <span class="badge MANUAL">not held</span>') + (x.overGroup ? ' <span class="badge WARN">theme over target</span>' : '') + (x.onWheel ? ' <span class="badge">wheel</span>' : '') + '</div><div class="s">' + esc(x.region) + ' · ' + esc(x.group) + (x.zone ? ' · ' + esc(x.zone) : '') + '</div></div><div class="r"><div class="t num"><b>' + x.score + '</b> ›</div></div></div>'; }).join('') + '<div class="tiny">Tap a stock to see exactly how its score was built, and to change the weights.</div></div>';
   /* sells */
   var hasSell = (d.sells && d.sells.length) || (d.thesisSells && d.thesisSells.length);
   h += '<div class="card"><h3>Sell suggestions</h3>';
@@ -2000,6 +2062,28 @@ function drawRebal(d) {
   if (d.history && d.history.length) h += '<div class="card"><h3>Past reviews</h3>' + d.history.map(function (r) { return '<div class="row"><div class="grow"><div class="t">' + esc(r.choice) + (r.asset ? ' ' + esc(r.asset) : '') + '</div><div class="s">' + dshort(r.date) + (r.amount ? ' · ' + usd(r.amount) : '') + ' · ' + esc(r.by || '') + '</div></div></div>'; }).join('') + '</div>';
   $('#main').innerHTML = h;
 }
+var SCF = { w: {} };
+var SC_PARTS = [['zone', 'Price against your entry zone', function (r) { return r.zone ? esc(r.zone) + (r.price ? ' · price ' + num(r.price, 2) : '') : 'no entry zone set'; }, 'Below zone 100, in zone 85, near 40, above 0'],
+  ['upside', 'Upside to analyst target', function (r) { return r.upsidePct === null || r.upsidePct === undefined ? 'no target' : pc(r.upsidePct, 0); }, 'Full marks at the upside set in rb_upside_full_pct'],
+  ['conviction', 'Your conviction', function (r) { return r.conviction === null || r.conviction === undefined ? 'not set' : r.conviction + ' / 10'; }, 'Conviction score times 10'],
+  ['dip', 'Fall from 52-week high', function (r) { return r.ddPct === undefined ? 'not enough price history' : pc(r.ddPct, 0) + ' below the high of ' + num(r.high, 2); }, 'Full marks at the fall set in rb_dd_full_pct'],
+  ['ma', 'Below the 200-day average', function (r) { return r.maDevPct === undefined ? 'needs 150 days of prices' : (r.maDevPct > 0 ? pc(r.maDevPct, 0) + ' below the average of ' + num(r.ma200, 2) : 'at or above the average'); }, 'Full marks at the gap set in rb_ma_full_pct'],
+  ['analyst', 'Analyst rating (Yahoo)', function (r) { return r.rating === null || r.rating === undefined ? 'not read yet' : 'mean ' + num(r.rating, 2) + ' (1 strong buy, 3 hold)'; }, 'Strong buy 100, hold 0'],
+  ['pe', 'Forward P/E against its own history', function (r) { return r.pe ? 'P/E ' + num(r.pe, 1) + ' · ' + r.peReadings + ' weekly readings' + (r.peReadings < 8 ? ' (needs 8)' : '') : 'not read yet'; }, 'Cheaper than its own history scores higher']];
+function scoreCard(asset) {
+  var d = RB.d, x = null; (d.opps || []).concat(d.noAddOpps || []).forEach(function (o) { if (o.asset === asset) x = o; }); if (!x) return toast('No score for ' + asset);
+  SCF = { asset: asset, w: JSON.parse(JSON.stringify(d.scoreCfg.w)), compelling: d.scoreCfg.compelling, x: x }; drawScoreCard();
+}
+function scoreCalc() { var x = SCF.x, n0 = 0, den = 0; SC_PARTS.forEach(function (p) { var v = x.parts[p[0]]; if (v === undefined || v === null) return; var w = Number(SCF.w[p[0]]) || 0; n0 += v * w; den += w; }); return den > 0 ? Math.round(n0 / den) : null; }
+function drawScoreCard() {
+  var x = SCF.x, den = 0; SC_PARTS.forEach(function (p) { if (x.parts[p[0]] !== undefined && x.parts[p[0]] !== null) den += Number(SCF.w[p[0]]) || 0; });
+  var rows = SC_PARTS.map(function (p) { var k = p[0], v = x.parts[k], has = v !== undefined && v !== null, w = Number(SCF.w[k]) || 0;
+    return '<tr><td><b>' + p[1] + '</b><div class="tiny">' + p[2](x.raw || {}) + '</div><div class="tiny">' + p[3] + '</div></td><td class="r num">' + (has ? v : '–') + '</td><td class="r"><input type="number" inputmode="decimal" min="0" max="100" value="' + w + '" style="width:54px;text-align:right" oninput="SCF.w[\'' + k + '\']=this.value;scoreRefresh()"></td><td class="r num">' + (has && den > 0 ? num(v * w / den, 1) : (has ? '0' : 'left out')) + '</td></tr>'; }).join('');
+  sheet('<h2>' + esc(x.asset) + ' · score <span id="scTot">' + scoreCalc() + '</span></h2><p class="mut sm">Each factor is marked 0 to 100. The score is the weighted average of the factors that have data; a factor with no data is left out, not counted as zero. Compelling means ' + SCF.compelling + ' or more.</p><table class="t"><tr><th>Factor</th><th class="r">Mark</th><th class="r">Weight</th><th class="r">Points</th></tr>' + rows + '<tr class="tot"><td>Score</td><td></td><td></td><td class="r num"><b id="scTot2">' + scoreCalc() + '</b></td></tr></table>'
+    + '<div class="tiny" style="margin-top:6px">Changing a weight here previews the score. Save to make it your setting for every screen.</div><div class="btns">' + (can('settings') ? '<button class="btn" onclick="scoreSave()">Save weights</button>' : '') + '<button class="btn ghost" onclick="closeSheet()">Close</button></div>');
+}
+function scoreRefresh() { var t = scoreCalc(); ['scTot', 'scTot2'].forEach(function (id) { var e = document.getElementById(id); if (e) e.textContent = t; }); }
+function scoreSave() { api('rb_weights_save', { weights: SCF.w }).then(function (r) { toast(r.message); closeSheet(); clearCache(); S.force = true; SCREENS.rebal(); }).catch(function (e) { toast(e.message); }); }
 function rbChoose(choice) {
   var d = RB.d, o = d.options, asset = '', amt = d.monthlyUsd, txt = '';
   if (choice === 'FILL') { asset = o.fill && o.fill.picks.length ? o.fill.picks.map(function (p) { return p.asset; }).join('+') : ''; txt = 'Fill ' + (o.fill ? o.fill.member : ''); }
@@ -2135,7 +2219,7 @@ var _drawHome13 = drawHome;
 drawHome = function (o) {
   _drawHome13(o);
   if (!isAll() || !scr('plan')) return;
-  var show = function (d) { if (!d || !d.review || !d.review.due || S.tab !== 'home' || S.stack.length) return; var m = $('#main'); if (!m || m.querySelector('#rbdue')) return; var el = document.createElement('div'); el.id = 'rbdue'; el.className = 'banner'; el.style.cursor = 'pointer'; el.setAttribute('onclick', "push('rebal')"); el.innerHTML = '<div><b>Rebalance review is due</b> · ' + usd(d.monthlyUsd) + ' to place, ' + d.rows.filter(function (r) { return r.status === 'OVER' || r.status === 'UNDER'; }).length + ' group(s) off target. Tap to review.</div>'; m.insertBefore(el, m.firstChild); };
+  var show = function (d) { if (!d || !d.review || !d.review.due || S.tab !== 'home' || S.stack.length) return; var m = $('#main'); if (!m || m.querySelector('#rbdue')) return; var el = document.createElement('div'); el.id = 'rbdue'; el.className = 'banner'; el.style.cursor = 'pointer'; el.setAttribute('onclick', "push('rebal')"); el.innerHTML = '<div><b>Rebalance review is due</b> · ' + (d.leftUsd === 0 ? '✓ this month\'s ' + usd(d.toPlaceUsd !== undefined ? d.toPlaceUsd : d.monthlyUsd) + ' is already put to work' : usd(d.leftUsd !== undefined ? d.leftUsd : d.monthlyUsd) + ' still to put to work' + (d.placedUsd ? ' (' + usd(d.placedUsd) + ' of ' + usd(d.toPlaceUsd) + ' done this month)' : '')) + ', ' + d.rows.filter(function (r) { return r.status === 'OVER' || r.status === 'UNDER'; }).length + ' group(s) off target. Tap to review.</div>'; m.insertBefore(el, m.firstChild); };
   if (RB.d) show(RB.d); else load('rebalance', {}, function (d) { RB.d = d; show(d); }, false, true).catch(function () {});
 };
 
@@ -2282,9 +2366,6 @@ function wpHtml() {
   if (d.heldUnrealUsd) h += kv('Assigned shares still held', '<span class="' + cls(d.heldUnrealUsd) + '">' + usdS(d.heldUnrealUsd) + '</span> <span class="tiny">not in the total</span>');
   h += '<div style="margin-top:10px"><b>Against the cash it secured</b></div>' + kv('Secured on average', usd(d.avgSecuredUsd) + ' <span class="tiny">now ' + usd(d.securedNowUsd) + '</span>') + kv('Return on secured cash', d.returnOnSecuredPct === null ? '–' : '<span class="' + cls(d.returnOnSecuredPct) + '">' + pc(d.returnOnSecuredPct, 2) + '</span>') + kv('Per year at this pace', d.annualisedOnSecuredPct === null ? '–' : pc(d.annualisedOnSecuredPct, 1));
   if (d.short) h += tip('Only ' + d.days + ' days of history, so the per-year figure swings a lot. Treat it with care.');
-  h += '<div style="margin-top:10px"><b>Against the whole portfolio</b></div>' + kv('Portfolio value on average', d.avgPortfolioUsd === null ? '–' : usd(d.avgPortfolioUsd)) + kv('Wheel result as % of portfolio', d.pctOfPortfolio === null ? '–' : pc(d.pctOfPortfolio, 2) + (d.annualisedOnPortfolioPct !== null ? ' <span class="tiny">(' + pc(d.annualisedOnPortfolioPct, 1) + ' a year)</span>' : ''));
-  h += kv('Portfolio return, same period', d.portfolioTwrPct === null ? '–' : '<span class="' + cls(d.portfolioTwrPct) + '">' + pc(d.portfolioTwrPct, 2) + '</span>' + (d.portfolioGainUsd !== null ? ' <span class="tiny">' + usdS(d.portfolioGainUsd) + '</span>' : ''));
-  if (d.shareOfGainPct !== null) h += kv('Wheel share of the portfolio gain', pc(d.shareOfGainPct, 0));
   h += '<div style="margin-top:10px"><b>Benchmarks on the same secured cash</b></div>';
   h += kv('Cash at ' + b.cashRatePct + '% a year', usd(b.cashEarnUsd) + ' <span class="tiny ' + cls(b.beatCashUsd) + '">Wheel ' + (b.beatCashUsd >= 0 ? 'ahead' : 'behind') + ' by ' + usd(Math.abs(b.beatCashUsd)) + '</span>');
   h += kv('Your ' + b.targetPct + '% yearly target', usd(b.targetEarnUsd) + ' <span class="tiny ' + cls(b.beatTargetUsd) + '">Wheel ' + (b.beatTargetUsd >= 0 ? 'ahead' : 'behind') + ' by ' + usd(Math.abs(b.beatTargetUsd)) + '</span>');
