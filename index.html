@@ -77,7 +77,7 @@ html{height:100vh;height:-webkit-fill-available}body{position:fixed;top:0;left:0
 #sheet.on{transform:none}
 #sheet .grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:4px auto 12px}
 #sheet h2{margin:0 0 4px;font-size:20px}
-#toast{position:fixed;left:50%;bottom:calc(96px + var(--sab));transform:translate(-50%,20px);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:14px;font-weight:600;font-size:15.5px;opacity:0;transition:all .2s;z-index:40;max-width:90%;text-align:center}
+#toast{position:fixed;left:50%;bottom:calc(114px + var(--sab));transform:translate(-50%,20px);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:14px;font-weight:600;font-size:15.5px;opacity:0;transition:all .2s;z-index:40;max-width:90%;text-align:center}
 #toast.on{opacity:1;transform:translate(-50%,0)}
 #upd{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + var(--sab));font-size:13px;color:var(--tx3);z-index:30;pointer-events:none;white-space:nowrap;padding:2px 10px;border-radius:10px;background:color-mix(in srgb,var(--bg) 80%,transparent)}
 #upd:empty{display:none}#upd.busy{color:var(--acc);font-weight:600}
@@ -174,7 +174,7 @@ body.nocomet #comet{display:none}
 .runner.ahead .fi{display:inline-block;animation:gallop .45s ease-in-out infinite alternate}@keyframes gallop{from{transform:translateY(0) rotate(-4deg)}to{transform:translateY(-3px) rotate(4deg)}}
 .fire{position:absolute;font-size:12px;pointer-events:none;animation:flick .6s ease-in-out infinite alternate}.fire.f1{left:-10px;top:-8px}.fire.f2{left:14px;top:-11px;animation-delay:.25s}@keyframes flick{from{transform:scale(.8);opacity:.75}to{transform:scale(1.2) translateY(-3px);opacity:1}}
 @media (prefers-reduced-motion:reduce){.runner .fi,.fire{animation:none}}
-</style>
+.fxadj{font-size:10px;letter-spacing:.04em;text-transform:uppercase;border:1px solid var(--line);border-radius:8px;padding:0 5px;color:var(--tx3);margin-left:2px}.combo{font-size:11px;font-weight:600;border-radius:9px;padding:1px 7px;background:var(--accbg);color:var(--acc)}.gstrip{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.gstrip .g{font-size:13px;border:1px solid var(--line);border-radius:12px;padding:4px 10px;background:var(--card)}.gstrip .g.warn{border-color:var(--warn);color:var(--warn)}.gstrip .g.bad{border-color:var(--neg);color:var(--neg)}.wlg{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:10px;margin-top:10px;font-size:13px}.wl52{position:relative;height:6px;border-radius:3px;background:var(--line,#dde);margin:4px 0}.wl52 i{position:absolute;top:-3px;width:3px;height:12px;border-radius:2px;background:var(--acc,#0a8);transform:translateX(-50%)}.tgl{width:40px;height:24px;border-radius:12px;border:0;background:var(--line,#ccd);position:relative;padding:0;flex:none}.tgl i{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s}.tgl.on{background:var(--acc,#0a8)}.tgl.on i{left:19px}.wlc.flash{outline:2px solid var(--acc,#0a8)}@media(max-width:380px){.wlg{grid-template-columns:1fr 1fr}}</style>
 </head>
 <body>
 <div id="prog"></div><svg id="comet" aria-hidden="true"><rect id="cometr" x="1.5" y="1.5" rx="38" ry="38" pathLength="100"/></svg><div id="app"><div id="top"></div><div id="ptr"></div><div id="main"></div></div>
@@ -331,10 +331,12 @@ function toast(msg) { var t = $('#toast'); t.textContent = msg; t.classList.add(
 function sheet(html) { $('#sheet').innerHTML = '<div class="grab"></div><button class="sheetx" onclick="closeSheet()" aria-label="Close">✕</button>' + html; $('#sheet').classList.add('on'); $('#sheetbg').classList.add('on'); $('#sheet').scrollTop = 0; }
 function closeSheet() { $('#sheet').classList.remove('on'); $('#sheetbg').classList.remove('on'); }
 function busy(btn, on) { if (!btn) return; btn.disabled = on; if (on) { btn._t = btn.textContent; btn.innerHTML = '<span class="spin"></span>'; } else btn.textContent = btn._t || btn.textContent; }
-function can(p) { return S.who && S.who.perms.indexOf(p) >= 0; }
+function kid() { return !!(S.who && S.who.person); }
+/* a child's key opens that child's own portfolio only: it never gets owner permissions, screens or the bell, whatever the key row says */
+function can(p) { return !!(S.who && S.who.perms.indexOf(p) >= 0 && (!kid() || p === 'view')); }
 /* the screens this person's key opens: Home and More are always there */
-function scr(id) { var s = S.who && S.who.screens; return !s || s === 'ALL' || ['home', 'more'].indexOf(id) >= 0 || s.indexOf(id) >= 0; }
-function isAll() { return S.who && S.who.scope === 'ALL'; }
+function scr(id) { if (kid()) return id === 'home' || id === 'more'; var s = S.who && S.who.screens; return !s || s === 'ALL' || ['home', 'more'].indexOf(id) >= 0 || s.indexOf(id) >= 0; }
+function isAll() { return !!(S.who && S.who.scope === 'ALL' && !kid()); }
 
 /* short money for the side scale: $84K, $1.2M */
 function kfmt(v) { var a = Math.abs(v), t = a >= 1e6 ? (a / 1e6).toFixed(a >= 1e7 ? 0 : 1) + 'M' : a >= 1e3 ? (a / 1e3).toFixed(a >= 1e4 ? 0 : 1) + 'K' : a.toFixed(0); return (v < 0 ? '−' : '') + '$' + t.replace('.0', ''); }
@@ -487,7 +489,7 @@ function drawHome(o, meta) {
   var m = $('#main'), full = o.scope === 'ALL', h = '';
   h += staleNote(meta);
   var ld = liveDelta(), shownVal = o.valueUsd + (ld || 0);
-  h += '<div class="card hero"><div class="lbl">' + (ld !== null ? '<span class="pill"><i></i>Live ' + liveStamp() + '</span>' : 'Total value · ' + dshort(o.asOf)) + '</div><div class="big num">' + usd(shownVal) + '</div>';
+  h += '<div class="card hero"><div class="lbl">' + (ld !== null ? '<span class="pill"><i></i>Live ' + liveStamp() + '</span>' : 'Total value · ' + dshort(o.asOf)) + '</div><div class="big num">' + usd(shownVal) + '</div>' + (full && o.loan && o.loan.principalUsd > 0 ? '<div class="tiny" style="margin-top:2px"><span class="pill" style="background:var(--card2)">Net of loan ' + usd(shownVal - o.loan.principalUsd) + '</span> <span class="mut">after the ' + usd(o.loan.principalUsd) + ' borrowed</span></div>' : '') + '';
   var dy = liveDay();
   if (dy) {
     var dn = function (t) { try { return new Date(t).toLocaleDateString([], { weekday: 'short' }); } catch (e) { return ''; } };
@@ -514,7 +516,7 @@ function drawHome(o, meta) {
     h += '</div>';
     h += '<div class="card"><h3>Since you started</h3>' + kv('Put in (net)', usd(o.netMoneyInUsd)) + kv('Total gain', '<span class="' + cls(o.totalGainUsd) + '">' + usdS(o.totalGainUsd) + '</span>') + kv('Money-weighted (XIRR)', pc(o.xirrPct, 2)) + kv('Time-weighted', pc(o.twrPct, 1) + ' · ' + pc(o.twrAnnualPct, 1) + ' a year') + kv('Unrealised', '<span class="' + cls(o.unrealizedUsd) + '">' + usdS(o.unrealizedUsd) + '</span>') + kv('Realised', '<span class="' + cls(o.realizedUsd) + '">' + usdS(o.realizedUsd) + '</span>') + kv('Income received', usd(o.incomeUsd)) + (o.taxEstUsd !== null && o.taxEstUsd !== undefined && o.totalGainUsd !== null ? kv('Estimated Indian tax', '<span class="neg">−' + usd(o.taxEstUsd) + '</span>') + (o.xirrAfterTaxPct !== null && o.xirrAfterTaxPct !== undefined ? kv('Money-weighted (XIRR) after tax', pc(o.xirrAfterTaxPct, 2)) : '') + kv('Total gain after tax', '<span class="' + cls(o.totalGainUsd - o.taxEstUsd) + '">' + usdS(o.totalGainUsd - o.taxEstUsd) + '</span>') + '<div class="tiny" style="margin-top:4px">Tax is an estimate on your Indian gains and dividends, summed over all years (US, UAE and crypto gains have no tax for you). Returns above are before tax. After-tax XIRR treats the tax of each year as paid on 15 March of that year.</div>' : '') + (o.optionsOtherUsd ? kv('Options and other', '<span class="' + cls(o.optionsOtherUsd) + '">' + usdS(o.optionsOtherUsd) + '</span>') : '') + '</div>';
     var j = o.journey; if (j) h += journeyCard(j) + idleCard(o) + homeCharts(o);
-    if (o.loan) h += loanCard(o.loan);
+    if (o.loan) h += loanCard(o.loan, o);
   }
   h += '<div class="card"><h3>Accounts</h3>' + o.accounts.map(function (a) { return '<div class="row"><div class="avatar">' + esc(String(a.broker || '').slice(0, 3).toUpperCase()) + '</div><div class="grow"><div class="t">' + esc(a.broker) + ' · ' + esc(a.currency) + '</div><div class="s">' + esc(a.acct) + '</div></div><div class="r"><div class="t num">' + (a.currency && a.currency !== 'USD' && a.fxPerUsd ? mny((a.investedUsd + a.cashUsd) * a.fxPerUsd, a.currency) + '<div class="usd2">' + usd(a.investedUsd + a.cashUsd) + '</div>' : usd(a.investedUsd + a.cashUsd)) + '</div><div class="s">cash ' + (a.currency && a.currency !== 'USD' && a.fxPerUsd ? mny(a.cashUsd * a.fxPerUsd, a.currency) : usd(a.cashUsd)) + '</div></div></div>'; }).join('') + '</div>';
   m.innerHTML = h; colify();
@@ -537,6 +539,15 @@ function runnerHtml(j, vis) {
   var label = (gap === null || gap === undefined) ? 'No plan yet' : (gap >= 0 ? usd(gap) + ' ahead of the plan path' : usd(-gap) + ' behind the plan path');
   return '<div class="runner fig ' + mood + '" style="left:' + Math.max(2, Math.min(98, vis)) + '%" onclick="event.stopPropagation();runnerTap(\'' + label.replace(/'/g, '') + '\')" title="' + esc(label) + '"><span class="fi"><span class="fl">' + face + '</span></span></div>';
 }
+function journeyWhy(j) {
+  if (j.gapToPlan === null || j.gapToPlan === undefined) return '';
+  var cg = j.gapFromContributions, rg = j.gapFromReturns, sg = function (x) { return '<span class="' + cls(x) + '">' + (x >= 0 ? usd(x) + ' ahead' : usd(-x) + ' behind') + '</span>'; }, miss = j.goal - j.projectedAtCurrentRate;
+  return '<div class="note" style="margin:8px 0 2px"><b>Why you are ' + (j.gapToPlan >= 0 ? 'ahead' : 'behind') + '</b></div>'
+    + kv('Money put in: ' + usd(j.netMoneyIn) + ' vs plan ' + usd(j.planContribToday), sg(cg)) + kv('Returns made: ' + usd(j.actualReturnsToday) + ' vs plan ' + usd(j.planReturnsToday), sg(rg))
+    + '<div class="note" style="margin:8px 0 2px"><b>The return gap</b></div>'
+    + '<div class="tiny">Your return is ' + (j.rateUsedPct === null || j.rateUsedPct === undefined ? '–' : pcp(j.rateUsedPct)) + ' since you started' + (j.trail12Pct === null || j.trail12Pct === undefined ? '' : ' (' + pcp(j.trail12Pct) + ' over the last 12 months)') + ' against the plan\'s ' + pcp(j.targetCagr, 0) + '; ' + pcp(j.requiredReturnPct) + ' is needed from here at ' + usd(j.monthlyPlan) + ' a month. At your pace you finish ' + usd(miss > 0 ? miss : 0) + ' short of the goal'
+    + (miss > 0 && j.requiredMonthlyAtRate ? ': closing it at that pace takes about ' + usd(j.requiredMonthlyAtRate) + ' a month, or a higher return from the wheel and shares, without chasing risk.' : '.') + '</div>';
+}
 function journeyCard(j) {
   var ms = (j.milestones || []).slice().sort(function (a, b) { return a.pct - b.pct; }), pcts = ms.map(function (m) { return m.pct; }), vis = milestoneVisual(j.progressPct, pcts.length ? pcts : [100]), flagCol = ['#2DBFAE', '#4F8FE8', '#B98FE0', '#D67AB1'];
   var track = '<div class="track-wrap"><div class="track"><div class="track-fill" style="width:' + vis + '%"></div></div>' + ms.map(function (m, i) {
@@ -550,10 +561,13 @@ function journeyCard(j) {
     + '<tr><td>If you earn ' + (j.trail12Pct === null || j.trail12Pct === undefined ? '–' : pc(j.trail12Pct, 1)) + ' (last 12 months)</td><td class="r num">' + nf(j.neededFlatAtTrail) + '</td><td class="r num">' + nf(j.neededStepAtTrail) + '</td></tr></table>'
     + '<div class="tiny" style="margin-top:4px">With ' + usd(j.monthlyPlan) + ' flat you reach ' + usd(j.projectedAtTargetRate) + ' at ' + pcp(j.targetCagr, 0) + (j.projectedFlatAtTrail !== null && j.projectedFlatAtTrail !== undefined ? ' and ' + usd(j.projectedFlatAtTrail) + ' at the last-12-month return' : '') + '. The yearly rise starts next January and only affects future months. Change it in Settings (contribution_stepup_pct); blank means 5%.</div>';
   return '<div class="card tap" onclick="go(\'plan\')"><h3>Journey to ' + usd(j.goal) + ' · ' + dshort(j.targetDate) + '</h3><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="num" style="font-size:26px;font-weight:700">' + pcp(j.progressPct) + '</span><span class="mut sm">' + j.monthsLeft + ' months left</span></div>' + track
-    + kv('Plan says you should be at', usd(j.planValueToday)) + kv('You are', '<span class="' + cls(gap) + '">' + (gap >= 0 ? usd(gap) + ' ahead' : usd(-gap) + ' behind') + '</span>') + kv('At your pace so far (' + pcp(j.rateUsedPct) + ')', usd(j.projectedAtCurrentRate)) + kv('Return you need from here', pcp(j.requiredReturnPct)) + need + '</div>';
+    + kv('Plan says you should be at', usd(j.planValueToday)) + kv('You are', '<span class="' + cls(gap) + '">' + (gap >= 0 ? usd(gap) + ' ahead' : usd(-gap) + ' behind') + '</span>') + kv('At your pace so far (' + pcp(j.rateUsedPct) + ')', usd(j.projectedAtCurrentRate)) + kv('Return you need from here', pcp(j.requiredReturnPct)) + journeyWhy(j) + need + '</div>';
 }
-function loanCard(l) {
-  return '<div class="card"><h3>Loan (a catalyst, not part of the goal)</h3>' + kv('Borrowed', 'AED ' + num(l.principalAed, 0) + ' (' + usd(l.principalUsd) + ')') + kv('Interest', pcp(l.ratePct) + ' · AED ' + num(l.interestAedPerYear, 0) + ' a year, paid upfront') + kv('Next interest due', dshort(l.nextInterestDue)) + (l.sinceDrawDays ? kv('Portfolio since the draw (' + l.sinceDrawDays + ' days)', '<span class="' + cls(l.portfolioTwrSinceDrawPct) + '">' + pc(l.portfolioTwrSinceDrawPct, 1) + '</span>') + '<div class="note">Interest of ' + usd(l.interestPaidUsd) + ' is about ' + pcp(l.interestPaidUsd / l.principalUsd * 100) + ' of the amount borrowed. Too early to judge: the portfolio needs to beat that over a full year.</div>' : '') + '</div>';
+function loanCard(l, o) {
+  var j = o && o.journey, val = o ? o.valueUsd : null, net = val !== null ? val - l.principalUsd : null, r12 = j ? j.trail12Pct : null, all = j ? j.rateUsedPct : null, spread = function (x) { return x === null || x === undefined ? '–' : '<span class="' + cls(x - l.ratePct) + '">' + (x - l.ratePct >= 0 ? '+' : '−') + pcp(Math.abs(x - l.ratePct), 1) + '</span>'; };
+  return '<div class="card"><h3>Loan (a catalyst, not part of the goal)</h3>' + kv('Borrowed', 'AED ' + num(l.principalAed, 0) + ' (' + usd(l.principalUsd) + ')') + (net !== null ? kv('Portfolio net of the loan', '<b>' + usd(net) + '</b> <span class="tiny">of ' + usd(val) + '</span>') : '') + kv('Interest', pcp(l.ratePct) + ' · AED ' + num(l.interestAedPerYear, 0) + ' a year, paid upfront') + kv('Next interest due', dshort(l.nextInterestDue))
+    + (j ? '<div class="note" style="margin-top:8px"><b>Is the borrowed money earning its keep?</b> The hurdle is ' + pcp(l.ratePct) + ' a year.</div>' + kv('Your return, last 12 months (XIRR)', (r12 === null || r12 === undefined ? '–' : pc(r12, 1)) + ' · ' + spread(r12) + ' vs hurdle') + kv('Your return since you started (XIRR)', (all === null || all === undefined ? '–' : pc(all, 1)) + ' · ' + spread(all) + ' vs hurdle') : '')
+    + (l.sinceDrawDays ? kv('Portfolio since the draw (' + l.sinceDrawDays + ' days)', '<span class="' + cls(l.portfolioTwrSinceDrawPct) + '">' + pc(l.portfolioTwrSinceDrawPct, 1) + '</span>') + '<div class="note">Interest of ' + usd(l.interestPaidUsd) + ' is about ' + pcp(l.interestPaidUsd / l.principalUsd * 100) + ' of the amount borrowed. Too short to judge from the draw date alone: use the 12-month line. The wheel\'s own result after losses on puts that are under water is on the Wheel tab.</div>' : '') + '</div>';
 }
 
 /* ---------- Holdings ---------- */
@@ -673,16 +687,24 @@ function holdSort(k) { setSort(HLD, k, (k === 'name' || k === 'acct' || k === 's
 function drawHold() {
   var d = S.hold; if (!d) return;
   if (HLD.mode === 'closed') return drawClosed();
-  var h = '<div class="seg"><button class="on">Open</button><button onclick="HLD.mode=\'closed\';drawHold()">Closed</button></div>' + filtBar() + filterRow(hrows(), 'drawHold') + '<input class="search" placeholder="Ticker or name; several with commas, e.g. TCS, INFY" value="' + esc(HLD.q) + '" oninput="HLD.q=this.value;holdList()"><div class="frow"><button class="chip ' + (CMP.on ? 'on' : '') + '" onclick="cmpMode()">☑ Select to compare</button><button class="chip ' + (HLD.incSold ? 'on' : '') + '" onclick="HLD.incSold=!HLD.incSold;drawHold()">' + (HLD.incSold ? '☑' : '☐') + ' XIRR incl. sold positions</button>' + (filtAny() ? '<button class="chip" onclick="clearAll()">Clear all filters</button>' : '') + '</div><div id="hs"></div>'
+  var h = '<div class="seg"><button class="on">Open</button><button onclick="HLD.mode=\'closed\';drawHold()">Closed</button></div>' + filtBar() + filterRow(hrows(), 'drawHold') + '<input class="search" placeholder="Ticker or name; several with commas, e.g. TCS, INFY" value="' + esc(HLD.q) + '" oninput="HLD.q=this.value;holdList()"><div class="frow"><button class="chip ' + (CMP.on ? 'on' : '') + '" onclick="cmpMode()">☑ Select to compare</button><button class="chip ' + (HLD.incSold ? 'on' : '') + '" onclick="HLD.incSold=!HLD.incSold;drawHold()">' + (HLD.incSold ? '☑' : '☐') + ' XIRR incl. sold positions</button>' + (filtAny() ? '<button class="chip" onclick="clearAll()">Clear all filters</button>' : '') + '</div><div id="hs"></div>' + guardStrip(d.guard)
     + sortBar(HLD, [['value', 'Value'], ['gain', 'Gain'], ['pct', 'Gain %'], ['day', 'Today'], ['weight', 'Weight'], ['name', 'A–Z'], ['acct', 'Account'], ['sector', 'Sector']], 'holdSort') + '<div id="hl"></div>';
   $('#main').innerHTML = h; holdList();
 }
 /* local currency first; the dollar equivalent small underneath (nothing extra for dollar positions) */
+function guardStrip(g) {
+  if (!g || !isAll()) return '';
+  var t = g.top5, tc = t.status === 'BREACH' ? 'bad' : '', out = '<div class="gstrip"><span class="g ' + tc + '">Top 5 holdings ' + pcp(t.pct) + (t.max ? ' · limit ' + pcp(t.max, 0) : '') + '</span>';
+  g.groups.forEach(function (x) { var c = x.status === 'BREACH' ? 'bad' : x.status === 'ABOVE' ? 'warn' : ''; out += '<span class="g ' + c + '">' + esc(x.label) + ' ' + pcp(x.pct) + (x.target !== null ? ' · target ' + pcp(x.target, 0) + (x.band ? ' ±' + x.band : '') : '') + (x.limit !== null ? ' · limit ' + pcp(x.limit, 0) : '') + '</span>'; });
+  (g.sectors || []).forEach(function (x) { out += '<span class="g">' + esc(x.label) + ' ' + pcp(x.pct) + '</span>'; });
+  return out + '</div><div class="tiny" style="margin:-4px 0 8px">Share of what you hold in shares and crypto, against the targets and limits you already set (Plan and Rebalance). Amber means above target plus band; red means a limit is breached.</div>';
+}
 function holdRight(r) {
   var loc = r.currency && r.currency !== 'USD' && r.valueLocal !== null && r.valueLocal !== undefined;
   if (!loc) return '<div class="t">' + usd(r.valueUsd) + '</div><div class="s chg ' + cls(r.unrealizedUsd) + '">' + arw(r.unrealizedUsd) + usdS(r.unrealizedUsd) + ' · ' + pc(r.unrealizedPct, 0) + '</div>';
   var g = r.valueLocal - r.cost;
-  return '<div class="t">' + mny(r.valueLocal, r.currency) + '</div><div class="s chg ' + cls(g) + '">' + arw(g) + mnyS(g, r.currency) + ' · ' + pc(r.unrealizedPct, 0) + '</div><div class="usd2">' + usd(r.valueUsd) + ' · ' + usdS(r.unrealizedUsd) + '</div>';
+  var lp = r.cost > 0 ? g / r.cost * 100 : null;
+  return '<div class="t">' + mny(r.valueLocal, r.currency) + '</div><div class="s chg ' + cls(g) + '">' + arw(g) + mnyS(g, r.currency) + ' · ' + pc(lp, 0) + '</div><div class="usd2">' + usd(r.valueUsd) + ' · <span class="' + cls(r.unrealizedUsd) + '">' + arw(r.unrealizedUsd) + usdS(r.unrealizedUsd) + ' · ' + pc(r.unrealizedPct, 0) + '</span> <span class="fxadj" title="The dollar figure includes the currency move against the dollar">FX-adj</span></div>';
 }
 /* today's price and how much it moved, green up and red down */
 function priceLine(r) {
@@ -693,10 +715,11 @@ function priceLine(r) {
 function holdList() {
   var d = S.hold, pool = hrows().filter(passF).filter(function (r) { return passB(r, false); }), rows = sorted(pool.filter(function (r) { return matchQ(r, HLD.q); }), HLD, HSORT);
   var hs = $('#hs'); if (hs) hs.innerHTML = holdSummary(HLD.q ? rows : pool);
+  var comb = {}, combN = {}; (d.rows || []).forEach(function (r0) { comb[r0.asset] = (comb[r0.asset] || 0) + (r0.weightPct || 0); combN[r0.asset] = (combN[r0.asset] || 0) + 1; });
   $('#hl').innerHTML = (CMP.on ? cmpBar() : '') + '<div class="card" style="padding:4px 16px">' + (rows.map(function (r) {
     var on = CMP.sel.indexOf(r.key) >= 0;
-    return '<div class="row tap ' + (r.unrealizedUsd > 0 ? 'up' : r.unrealizedUsd < 0 ? 'dn' : '') + (on ? ' picked' : '') + '" onclick="' + (CMP.on ? 'cmpTick(\'' + esc(r.key) + '\')' : 'holdDetail(\'' + esc(r.key) + '\')') + '">' + (CMP.on ? '<span class="ck ' + (on ? 'on' : '') + '">' + (on ? '✓' : '') + '</span>' : '') + '<div class="avatar">' + esc(r.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(r.asset) + ' ' + healthBadge(r) + '</div><div class="s px" style="white-space:normal">' + (r.live ? '<span class="livetag">' + (r.ext ? (r.state === 'PRE' ? 'pre-market' : 'after hrs') : 'live') + '</span>' : '') + priceLine(r) + '</div><div class="s">' + esc(r.name === r.asset ? (r.sector || '') : r.name) + ' · ' + pcp(r.weightPct) + '</div></div><div class="r">' + holdRight(r) + '</div></div>';
-  }).join('') || '<div class="empty">Nothing matches</div>') + '</div><div class="tiny" style="text-align:center">' + usd(d.totalUsd) + ' at last close' + (S.live ? ' · live ' + liveStamp() + ' (' + S.live.got + '/' + S.live.asked + ' quotes; some exchanges are delayed by Yahoo)' : '') + '</div>';
+    return '<div class="row tap ' + (r.unrealizedUsd > 0 ? 'up' : r.unrealizedUsd < 0 ? 'dn' : '') + (on ? ' picked' : '') + '" onclick="' + (CMP.on ? 'cmpTick(\'' + esc(r.key) + '\')' : 'holdDetail(\'' + esc(r.key) + '\')') + '">' + (CMP.on ? '<span class="ck ' + (on ? 'on' : '') + '">' + (on ? '✓' : '') + '</span>' : '') + '<div class="avatar">' + esc(r.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(r.asset) + ' ' + healthBadge(r) + '</div><div class="s px" style="white-space:normal">' + (r.live ? '<span class="livetag">' + (r.ext ? (r.state === 'PRE' ? 'pre-market' : 'after hrs') : 'live') + '</span>' : '') + priceLine(r) + '</div><div class="s">' + esc(r.name === r.asset ? (r.sector || '') : r.name) + ' · ' + pcp(r.weightPct) + (combN[r.asset] > 1 ? ' <span class="combo" title="Same ticker in more than one account">Combined ' + pcp(comb[r.asset]) + '</span>' : '') + '</div></div><div class="r">' + holdRight(r) + '</div></div>';
+  }).join('') || '<div class="empty">Nothing matches</div>') + '</div><div class="tiny" style="text-align:center">' + usd(d.totalUsd) + ' at last close' + (S.live ? ' · live ' + liveStamp() + ' (' + S.live.got + '/' + S.live.asked + ' unique tickers · ' + (d.rows || []).length + ' positions; some exchanges are delayed by Yahoo)' : '') + '</div>';
 }
 var CSORT = { date: function (r) { return r.lastSell; }, gain: function (r) { return r.gainUsd; }, pct: function (r) { return r.returnPct; }, name: function (r) { return r.asset; }, opened: function (r) { return r.firstBuy; }, acct: function (r) { return r.acct + r.asset; } };
 function closedSort(k) { setSort(CLD, k, (k === 'name' || k === 'acct') ? 1 : -1); drawClosed(); }
@@ -716,7 +739,7 @@ function closedList() {
   var cs = $('#cs'); if (cs) cs.innerHTML = closedSummary(CLD.q ? rows : pool);
   $('#cl').innerHTML = '<div class="card" style="padding:4px 16px">' + rows.map(function (r) {
     var loc = r.ccy && r.ccy !== 'USD' && r.gainLocal !== undefined;
-    return '<div class="row tap ' + (r.gainUsd > 0 ? 'up' : r.gainUsd < 0 ? 'dn' : '') + '" onclick="closedDetail(\'' + esc(r.key) + '\')"><div class="avatar">' + esc(r.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(r.asset) + '</div><div class="s">' + dshort(r.firstBuy) + ' → ' + dshort(r.lastSell) + '</div></div><div class="r"><div class="t ' + cls(r.gainUsd) + '">' + arw(r.gainUsd) + (loc ? mnyS(r.gainLocal, r.ccy) : usdS(r.gainUsd)) + '</div><div class="s chg ' + cls(r.gainUsd) + '">' + arw(r.gainUsd) + pc(r.returnPct, 0) + '</div>' + (loc ? '<div class="usd2">' + usdS(r.gainUsd) + '</div>' : '') + '</div></div>'; }).join('') + '</div>';
+    return '<div class="row tap ' + (r.gainUsd > 0 ? 'up' : r.gainUsd < 0 ? 'dn' : '') + '" onclick="closedDetail(\'' + esc(r.key) + '\')"><div class="avatar">' + esc(r.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(r.asset) + '</div><div class="s">' + dshort(r.firstBuy) + ' → ' + dshort(r.lastSell) + '</div></div><div class="r"><div class="t ' + cls(r.gainUsd) + '">' + arw(r.gainUsd) + (loc ? mnyS(r.gainLocal, r.ccy) : usdS(r.gainUsd)) + '</div><div class="s chg ' + cls(loc ? r.gainLocal : r.gainUsd) + '">' + arw(loc ? r.gainLocal : r.gainUsd) + pc(loc && r.proceedsLocal - r.gainLocal > 0 ? r.gainLocal / (r.proceedsLocal - r.gainLocal) * 100 : r.returnPct, 0) + '</div>' + (loc ? '<div class="usd2"><span class="' + cls(r.gainUsd) + '">' + arw(r.gainUsd) + usdS(r.gainUsd) + ' · ' + pc(r.returnPct, 0) + '</span> <span class="fxadj" title="The dollar figure includes the currency move against the dollar">FX-adj</span></div>' : '') + '</div></div>'; }).join('') + '</div>';
 }
 function closedDetail(k) {
   var r = (S.mem.closed || { rows: [] }).rows.filter(function (x) { return x.key === k; })[0]; if (!r) return;
@@ -1180,9 +1203,12 @@ function wheelIdleNote(d) {
 }
 function idleCard(o) {
   var i = o.idle; if (!i || !isAll()) return '';
-  var warn = i.idlePctOfAccounts >= i.alertPct;
-  return '<div class="card tap" onclick="go(\'wheel\')"><h3>Cash working in your options account</h3>' + kv('Idle (free for new puts)', '<span class="' + (warn ? 'neg' : '') + '">' + usd(i.idleUsd) + '</span>') + kv('Tied up by open puts', usd(i.committedUsd)) + kv('Kept as reserve', usd(i.reserveUsd))
-    + '<div class="tiny" style="margin-top:6px">' + (i.idleUsd > 0 ? 'At ' + pcp(i.yieldPct, 1) + ' interest against your ' + pcp(i.targetPct, 0) + ' target, idle cash costs about ' + usd(i.costPerYearUsd) + ' a year. ' : 'Nothing idle. ') + 'Tap to open the Wheel.</div></div>';
+  var ok = i.bufferStatus === 'HEALTHY';
+  return '<div class="card tap" onclick="go(\'wheel\')"><h3>Cash working in your options account</h3>'
+    + kv('Account cash', '<b>' + usd(i.cashUsd) + '</b>') + kv('Put utilisation', usd(i.committedUsd) + ' of ' + usd(i.cashUsd) + ' <span class="tiny">(' + pcp(i.utilPct, 1) + ' committed)</span>')
+    + kv('Cash left if every put were assigned', '<b>' + usd(i.bufferUsd) + '</b> <span class="badge ' + (ok ? 'OK' : 'WARN') + '">' + (ok ? 'Healthy buffer' : 'Caution') + '</span>')
+    + '<div class="tiny" style="margin-top:2px">That is ' + usd(i.idleUsd) + ' free for new puts plus ' + usd(i.reserveUsd) + ' kept as reserve. It is ' + pcp(i.bufferPct, 1) + ' of the cash; healthy is ' + pcp(i.healthyPct, 0) + ' or more (setting opt_buffer_healthy_pct). Too low in calm markets means you are stretched; too high in a pullback means unused capital.</div>'
+    + (i.idleUsd > 0 ? '<div class="tiny" style="margin-top:4px">The ' + usd(i.idleUsd) + ' that is free earns about ' + pcp(i.yieldPct, 1) + ' until used, against your ' + pcp(i.targetPct, 0) + ' target (about ' + usd(i.costPerYearUsd) + ' a year if it stays idle).</div>' : '') + '</div>';
 }
 function drawWheel(d) {
   var h = '';
@@ -1853,7 +1879,7 @@ function cfnCopy(held, i) {
 
 function whResultsHtml(d) {
   var r = d.results; if (!r || !r.rows.length) return '';
-  return '<div class="card"><h3>Wheel results</h3><div class="grid2"><div class="stat"><div class="k">Premium kept</div><div class="v pos">' + usd(r.premiumUsd) + '</div><div class="tiny">' + (r.annPct !== null ? pcp(r.annPct) + ' a year on the cash tied up' : '') + '</div></div><div class="stat"><div class="k">Cycles completed</div><div class="v">' + r.cycles + '</div><div class="tiny">put assigned, then called away</div></div></div>'
+  return '<div class="card"><h3>Wheel results · since start</h3><div class="grid2"><div class="stat"><div class="k">Premium kept</div><div class="v pos">' + usd(r.premiumUsd) + '</div><div class="tiny">' + (r.annPct !== null ? pcp(r.annPct) + ' a year on the cash tied up' : '') + '</div></div><div class="stat"><div class="k">Cycles completed</div><div class="v">' + r.cycles + '</div><div class="tiny">put assigned, then called away</div></div></div>'
     + r.rows.map(function (x, i) { return '<div class="row tap" onclick="whResOpen(' + i + ')"><div class="grow"><div class="t" style="white-space:normal">' + esc(x.asset) + '</div><div class="s" style="white-space:normal">' + x.putsSold + ' put' + (x.putsSold === 1 ? '' : 's') + (x.callsSold ? ' · ' + x.callsSold + ' call' + (x.callsSold === 1 ? '' : 's') : '') + (x.assigned ? ' · assigned ' + x.assigned : '') + (x.calledAway ? ' · called away ' + x.calledAway : '') + '</div></div><div class="r"><b class="' + cls(x.totalUsd) + '">' + usd(x.totalUsd) + '</b></div></div>'; }).join('') + '</div>';
 }
 function whResOpen(i) {
@@ -2340,7 +2366,7 @@ function screenInfo() { try { var v = window.visualViewport; return 'Window ' + 
 /* ---------- Wheel performance card at the top of the Wheel tab ---------- */
 var WP = { d: null, p: 'M', busy: false, err: '' };
 var _screensWheel14 = SCREENS.wheel;
-SCREENS.wheel = function () { WP.d = null; _screensWheel14.apply(this, arguments); };
+SCREENS.wheel = function () { WP.d = null; WP.busy = false; WP.err = ''; _screensWheel14.apply(this, arguments); };
 var _drawWheel14 = drawWheel;
 drawWheel = function (d) {
   _drawWheel14(d);
@@ -2374,6 +2400,147 @@ function wpHtml() {
   if (d.byAsset && d.byAsset.length) h += '<div style="margin-top:10px"><b>By stock</b></div>' + d.byAsset.map(function (r) { return kv(esc(r.asset) + ' <span class="tiny">' + r.trades + ' trade' + (r.trades === 1 ? '' : 's') + '</span>', usdS(r.premiumUsd + r.sharesUsd) + (r.sharesUsd ? ' <span class="tiny">premium ' + usdS(r.premiumUsd) + ' · shares ' + usdS(r.sharesUsd) + '</span>' : '')); }).join('');
   return h + tip(esc(d.note)) + '</div>';
 }
+
+
+/* ---------- Wheel, Round B: one clear order, no card stacking by position ---------- */
+function whCashCard(d) {
+  var h = '<div class="card"><div class="lbl tiny" style="text-transform:uppercase;font-weight:600;letter-spacing:.07em">Free to commit to new puts</div><div class="num" style="font-size:30px;font-weight:700;margin:2px 0 6px">' + usd(d.freeUsd) + '</div>';
+  d.capital.forEach(function (c) {
+    h += '<div class="row"><div class="grow"><div class="t">' + esc(c.broker) + ' <span class="tiny">' + esc(c.acct) + '</span></div><div class="s" style="white-space:normal">cash ' + usd(c.cashUsd) + ' · in ' + c.putsOpen + ' open put' + (c.putsOpen === 1 ? '' : 's') + ' ' + usd(c.committedUsd) + ' · kept back ' + usd(c.reserveUsd) + '</div></div><div class="r"><b>' + usd(c.freeUsd) + '</b><div class="tiny">free</div></div></div>';
+  });
+  if (!d.capital.length) h += '<div class="empty">No options account is set. Set opt_accounts in Settings.</div>';
+  return h + '<div class="note">Free = cash, minus what open puts tie up, minus ' + d.rules.reservePct + '% of the account kept as a reserve (setting opt_cash_reserve_pct).</div>' + wheelIdleNote(d) + '</div>';
+}
+function whPutRow2(p, i) {
+  var gi = p.groupNowPct !== null && p.groupIfAssignedPct !== null ? esc(p.group) + ' ' + pcp(p.groupNowPct, 1) + ' → ' + pcp(p.groupIfAssignedPct, 1) + ' if assigned' : '';
+  var be = 'break-even ' + num(p.breakEven, 2) + (p.toBreakEvenPct === null ? '' : ' (stock ' + pcp(Math.abs(p.toBreakEvenPct), 1) + (p.toBreakEvenPct >= 0 ? ' above' : ' below') + ')');
+  var tone = p.verdict === 'HOLD' || p.verdict === 'CLOSE' ? 'OK' : 'WARN';
+  return '<div class="row tap" onclick="whPutOpen(' + i + ')"><div class="grow"><div class="t" style="white-space:normal">' + esc(p.asset) + ' ' + num(p.strike, 2) + ' put <span class="tiny">' + p.contracts + 'x · ' + dshort(p.expiry) + ' · ' + p.dte + 'd</span></div>'
+    + '<div class="s" style="white-space:normal">' + (p.price === null ? 'no price yet' : 'stock ' + num(p.price, 2) + ' (' + pc(p.moneynessPct, 1) + ' vs strike)') + (p.priceStale ? ' OLD' : '') + ' · ' + be + '</div>'
+    + '<div class="tiny" style="margin-top:3px">' + (p.capturedPct !== null ? '<b>' + p.capturedPct + '%</b> of premium captured' + (p.takeProfit ? ' <span class="badge OK">Take profit</span>' : ' <span class="tiny">(take profit from ' + p.takeProfitAt + '%)</span>') : '')
+    + (p.earningsDate ? ' <span class="badge WARN">Earnings ' + dshort(p.earningsDate) + ' before expiry</span>' : (p.earningsKnown ? '' : ' <span class="tiny">earnings date unknown</span>')) + '</div>'
+    + (gi ? '<div class="tiny" style="margin-top:3px">' + gi + '</div>' : '') + whFlags(p) + '</div><div class="r"><span class="badge ' + tone + '">' + esc(p.verdict) + '</span></div></div>';
+}
+function whPutsCard(d) {
+  var h = '<div class="card"><h3>Open puts and breakevens' + (d.puts.length ? ' · ' + d.puts.length : '') + '</h3>';
+  if (!d.puts.length) h += '<div class="empty">No open puts</div>';
+  d.puts.forEach(function (p, i) { h += whPutRow2(p, i); });
+  if (d.puts.length && d.paperLossUsd > 0) h += '<div class="note">Puts under water today would lose about <b>' + usd(d.paperLossUsd) + '</b> on paper if assigned now (strike minus today\'s price, before the premium you keep).</div>';
+  if (d.puts.length) h += '<div class="btns"><button class="btn ghost sm" onclick="push(\'options\')">Close, expire or assign…</button>' + (can('trade_entry') ? '<button class="btn ghost sm" onclick="optEvent(\'STO\')">+ Sell a new put</button>' : '') + '</div>';
+  else if (can('trade_entry')) h += '<div class="btns"><button class="btn ghost sm" onclick="optEvent(\'STO\')">+ Sell a new put</button></div>';
+  return h + '</div>';
+}
+function whAssignCard(d) {
+  if (!d.puts.length) return '';
+  var cashAll = d.capital.reduce(function (s, c) { return s + c.cashUsd; }, 0);
+  var h = '<div class="card"><h3>If all ' + d.puts.length + ' put' + (d.puts.length === 1 ? '' : 's') + ' were assigned</h3>' + kv('Cash needed', usd(d.assignAll.cashUsd) + ' <span class="tiny">(' + (d.assignAll.cashUsd <= cashAll ? 'covered by your cash' : 'more than your cash') + ')</span>')
+    + kv('Shares you would own', d.assignAll.shares.map(function (s) { return esc(s.asset) + ' ' + num(s.shares, 0); }).join(' · '));
+  (d.groupImpact || []).forEach(function (g) {
+    var over = g.limitMax !== null && g.afterPct > g.limitMax;
+    h += kv(esc(g.group), pcp(g.beforePct, 1) + ' → <b class="' + (over ? 'neg' : '') + '">' + pcp(g.afterPct, 1) + '</b>' + (g.limitMax !== null ? ' <span class="tiny">limit ' + pcp(g.limitMax, 0) + (over ? (g.allowed ? ', allowed for the wheel' : ', over the limit') : '') + '</span>' : ''));
+  });
+  h += '<div style="margin-top:6px">' + whBadge(d.assignAll.check.status) + '</div>' + whItems(d.assignAll.check)
+    + '<div class="note">Weights are shares of your whole portfolio, with the shares valued at today\'s price. Sector groups in opt_override_groups (' + (d.rules.overrideGroups.length ? esc(d.rules.overrideGroups.join(', ')) : 'none') + ') may go over their limit. Nothing is ordered.</div></div>';
+  return h;
+}
+function whListCard(d) {
+  var h = '<div class="card"><h3>Your wheel list · ' + d.shortlist.length + '</h3>';
+  if (!d.shortlist.length) h += '<div class="empty">Nothing on the list yet. Add a stock below.</div>';
+  d.shortlist.forEach(function (s) {
+    var zb = s.zone === 'IN ZONE' ? 'OK' : s.zone === 'NEAR' ? 'WARN' : '';
+    h += '<div class="row tap" onclick="whEdit(\'' + esc(s.asset) + '\')"><div class="grow"><div class="t">' + esc(s.asset) + ' <span class="badge ' + zb + '">' + esc(s.zone || 'NO PRICE LIMIT') + '</span> <span class="tiny">' + esc(s.stage.toLowerCase()) + '</span>' + (s.reviewCeiling ? ' <span class="badge WARN">Review ceiling</span>' : '') + '</div><div class="s">' + (s.price === null ? 'no price yet' : num(s.price, 2)) + (s.priceStale && s.price !== null ? ' (old)' : '') + ' · own below ' + (s.ownBelow ? num(s.ownBelow, 2) : 'not set') + (s.abovePct !== null && s.zone !== 'IN ZONE' ? ' · ' + pcp(s.abovePct) + ' above' : '') + ' · ' + (esc(s.group) || '<span class="neg">sector not set</span>') + (s.ungrouped ? ' (no group)' : '') + '</div>'
+      + (s.reviewCeiling ? '<div class="tiny">The price is more than ' + d.rules.reviewDriftPct + '% above your ceiling. If you would now pay more, raise it; if not, this stock is waiting.</div>' : '') + '</div><div class="r">' + (s.oneContract.cashUsd ? '<div class="tiny">1 contract</div><b>' + usd(s.oneContract.cashUsd) + '</b>' : '') + '</div></div>';
+  });
+  if (can('settings')) h += '<div class="btns"><button class="btn ghost sm" onclick="whAdd()">+ Add a stock</button></div>';
+  return h + '</div>';
+}
+function whSuggCard(d) {
+  if (!(d.suggestions.length && can('settings'))) return '';
+  return '<div class="card"><h3>Suggested to add</h3>' + d.suggestions.map(function (s) {
+    return '<div class="row"><div class="grow"><div class="t">' + esc(s.asset) + ' <span class="tiny">' + esc(s.reason) + '</span></div><div class="s">' + esc(s.name || '') + (s.price !== null ? ' · ' + num(s.price, 2) : '') + (s.entryHigh ? ' · your entry zone tops out at ' + num(s.entryHigh, 0) : '') + '</div></div><button class="btn sm ghost" onclick="whAddQuick(\'' + esc(s.asset) + '\',this)">Add</button></div>';
+  }).join('') + '<div class="note">"Own below" starts at the top of your entry zone (watchlist) and can be changed by tapping the stock.</div></div>';
+}
+drawWheel = function (d) {
+  var h = '<div class="tiny" style="text-transform:uppercase;font-weight:700;letter-spacing:.07em;margin:2px 2px 6px">Bankroll and yield pulse</div>' + whCashCard(d) + '<div id="wperf">' + wpHtml() + '</div>'
+    + whPendingHtml(d) + whTodayHtml(d)
+    + whPutsCard(d) + whAssignCard(d) + whCallsHtml(d) + whBasisHtml(d) + cfnCard(d) + whResultsHtml(d)
+    + fndCard() + whListCard(d) + whSuggCard(d)
+    + '<div class="btns" style="margin:0 0 10px"><button class="btn ghost sm" onclick="push(\'watchlist\')">Open your watchlist</button></div><div class="note">Nothing here places an order.</div>';
+  $('#main').innerHTML = h;
+  if (!WP.d && !WP.busy) wpLoad();
+};
+/* put finder: delta and a quiet comparison with the cost of borrowed money */
+fndRow = function (c, i, held) {
+  var top = c.top ? ' <span class="badge OK">TOP PICK</span>' : '', hz = FND.d && FND.d.rules ? FND.d.rules.hurdlePct : null;
+  var tag = hz ? ' <span class="tiny" style="opacity:.8">' + (c.annYieldPct >= hz ? pcp(c.annYieldPct - hz, 1) + ' pts over the ' + pcp(hz, 1) + ' loan cost' : pcp(hz - c.annYieldPct, 1) + ' pts under the ' + pcp(hz, 1) + ' loan cost') + ', before assignment risk</span>' : '';
+  return '<div class="row tap" onclick="fndOpen(' + i + ',' + (held ? 1 : 0) + ')"><div class="grow"><div class="t" style="white-space:normal">' + esc(c.asset) + ' ' + num(c.strike, c.strike % 1 ? 2 : 0) + ' put' + top + (c.fitsCash ? '' : ' <span class="badge">NEEDS MORE CASH</span>') + '</div>'
+    + '<div class="s" style="white-space:normal">' + dshort(c.expiry) + ' · ' + c.dte + 'd · premium ' + num(c.mid, 2) + ' · <b>' + pcp(c.annYieldPct) + '</b> a year · delta ' + num(c.delta, 2) + ' · ' + pcp(c.pAssignPct) + ' chance of assignment · ' + pcp(c.cushionPct) + ' below the stock</div>'
+    + '<div class="tiny" style="margin-top:3px">' + (c.check.status === 'OK' ? '' : whBadge(c.check.status) + ' ') + fndEv(c) + (c.earningsDate ? '' : (c.earningsKnown === false ? ' <span class="tiny">earnings date unknown</span>' : ' <span class="tiny">no earnings before expiry</span>')) + tag + '</div></div>'
+    + '<div class="r"><b>' + num(c.overall, 0) + '</b><div class="tiny">overall</div></div></div>';
+};
+/* performance card: labelled period, return on the money you put in, never stuck */
+var WP_SEQ = 0;
+function wpLoad() {
+  var seq = ++WP_SEQ, per = WP.p; WP.busy = true; WP.err = '';
+  var tm = setTimeout(function () { if (seq === WP_SEQ && WP.busy) { WP.busy = false; WP.err = 'This is taking too long. Tap retry.'; var x = $('#wperf'); if (x) x.innerHTML = wpHtml(); } }, 30000);
+  api('wheelperf', { period: per }).then(function (d) { clearTimeout(tm); if (seq !== WP_SEQ) return; WP.d = d; WP.busy = false; var e = $('#wperf'); if (e) e.innerHTML = wpHtml(); })
+    .catch(function (e) { clearTimeout(tm); if (seq !== WP_SEQ) return; WP.busy = false; WP.err = e.message || 'Could not load'; var x = $('#wperf'); if (x) x.innerHTML = wpHtml(); });
+}
+function wpRetry() { WP.err = ''; WP.d = null; var e = $('#wperf'); if (e) e.innerHTML = wpHtml(); wpLoad(); }
+var _wpHtmlOld = wpHtml;
+wpHtml = function () {
+  var d = WP.d;
+  if (WP.err) return _wpHtmlOld.call(null).replace(/<div class="tiny neg">[\s\S]*<\/div><\/div>$/, '<div class="tiny neg">' + esc(WP.err) + '</div><div class="btns"><button class="btn ghost sm" onclick="wpRetry()">Retry</button></div></div>');
+  if (!d || d.empty) return _wpHtmlOld.call(null);
+  var h = _wpHtmlOld.call(null), word = d.periodWord || 'this period';
+  h = h.replace('earned by the Wheel in this period, before tax', 'WHEEL RESULTS, ' + esc(word) + ' · before tax');
+  var ex = '<div style="margin-top:10px"><b>Against the money you put into IBKR</b></div>'
+    + kv('Average money in the options account', d.avgBankrollUsd === null ? '–' : usd(d.avgBankrollUsd) + ' <span class="tiny">averaged day by day</span>')
+    + kv('Return ' + esc(word), d.returnOnBankrollPct === null ? '–' : '<span class="' + cls(d.returnOnBankrollPct) + '">' + pc(d.returnOnBankrollPct, 2) + '</span>')
+    + kv('Per year', d.annualised ? (d.annualisedOnBankrollPct === null ? '–' : '<b>' + pc(d.annualisedOnBankrollPct, 1) + '</b>') : '<span class="tiny">not annualised: under 90 days of history</span>');
+  if (d.annualised && d.annualisedOnBankrollPct !== null) ex += '<div class="tiny" style="margin-top:2px">Your loan costs ' + pcp(d.hurdlePct, 1) + ' a year. The wheel is ' + (d.annualisedOnBankrollPct >= d.hurdlePct ? 'ahead by ' : 'behind by ') + num(Math.abs(d.annualisedOnBankrollPct - d.hurdlePct), 1) + ' points (gross, before tax and before the risk of being assigned).</div>';
+  if (d.paperLossUsd > 0) ex += kv('Open puts under water', '<span class="neg">−' + usd(d.paperLossUsd) + '</span> <span class="tiny">paper loss if assigned now</span>') + kv('Result after that paper loss', '<span class="' + cls(d.resultAfterPaperUsd) + '">' + usdS(d.resultAfterPaperUsd) + '</span>');
+  var k = h.indexOf('<div style="margin-top:10px"><b>Against the cash it secured</b>');
+  return k < 0 ? h : h.slice(0, k) + ex + h.slice(k);
+};
+
+
+/* ---------- Watchlist, Round C: ready-today strip, filters, compact cards, wheel switch with confirmation ---------- */
+var WLF = { f: 'all' };
+function wlRange(w) {
+  if (!(w.week52Low && w.week52High && w.price !== null && w.week52High > w.week52Low)) return w.week52Low && w.week52High ? '<div class="tiny">52 weeks ' + num(w.week52Low, 2) + ' – ' + num(w.week52High, 2) + '</div>' : '<div class="tiny">52-week range not stored yet</div>';
+  var p = Math.max(0, Math.min(100, (w.price - w.week52Low) / (w.week52High - w.week52Low) * 100));
+  return '<div class="tiny">52 weeks</div><div class="wl52"><i style="left:' + p.toFixed(0) + '%"></i></div><div class="tiny" style="display:flex;justify-content:space-between"><span>' + num(w.week52Low, 2) + '</span><span>' + num(w.week52High, 2) + '</span></div>';
+}
+function wlCard(w) {
+  var zb = w.zone === 'IN ZONE' ? 'OK' : (w.zone === 'BELOW ZONE' || w.zone === 'NEAR') ? 'WARN' : '', zt = w.zone === 'IN ZONE' ? 'IN ZONE' : w.zone === 'BELOW ZONE' ? 'BELOW ZONE' : (w.distPct !== null ? pcp(Math.abs(w.distPct)) + ' above zone' : (w.price === null ? 'NO PRICE YET' : 'NO ZONE SET'));
+  var zone = (w.low && w.high) ? num(w.low, 2) + ' – ' + num(w.high, 2) : (w.high ? 'up to ' + num(w.high, 2) : 'not set');
+  var tgt = w.upsidePct !== null && w.target ? '<b>' + num(w.target, 0) + '</b> <span class="tiny ' + cls(w.upsidePct) + '">' + pc(w.upsidePct, 0) + ' vs price</span>' : '<span class="tiny">none stored</span>';
+  return '<div class="card wlc' + (w.zone === 'IN ZONE' ? ' alert INFO' : '') + '" id="wlc_' + esc(w.asset) + '">'
+    + '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div style="min-width:0"><b>' + esc(w.asset) + '</b> <span class="badge ' + zb + '">' + esc(zt) + '</span>' + (w.held ? ' <span class="badge MANUAL">held</span>' : '') + '<div class="tiny" style="margin-top:2px;white-space:normal">' + [esc(w.name || ''), esc(w.sector || '')].filter(Boolean).join(' · ') + '</div></div>'
+    + '<div style="text-align:right"><div class="num" style="font-weight:700">' + (w.price === null ? '–' : num(w.price, 2)) + '</div>' + (w.priceStale && w.price !== null ? '<div class="tiny neg">old price</div>' : '<div class="tiny">' + esc(w.ccy || '') + '</div>') + '</div></div>'
+    + '<div class="wlg"><div><div class="tiny">Entry zone</div><div>' + zone + '</div></div><div>' + wlRange(w) + '</div><div><div class="tiny">Analyst target</div><div>' + tgt + '</div></div></div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap"><div class="tiny" style="min-width:0;white-space:normal">' + (w.conviction !== null ? 'Conviction <b>' + w.conviction + '/10</b>' : 'No conviction set') + (w.priority ? ' · ' + esc(w.priority) : '') + (w.notes ? ' · ' + esc(w.notes) : '') + '</div>'
+    + (can('settings') ? '<div style="display:flex;gap:8px;align-items:center"><button class="btn ghost sm" onclick="wlEdit(\'' + esc(w.asset) + '\')">Edit</button><button class="tgl ' + (w.onWheel ? 'on' : '') + '" role="switch" aria-checked="' + (w.onWheel ? 'true' : 'false') + '" aria-label="Wheel list" onclick="wlWheelAsk(\'' + esc(w.asset) + '\',' + (w.onWheel ? 'false' : 'true') + ')"><i></i></button><span class="tiny">Wheel</span></div>' : '') + '</div></div>';
+}
+function wlFilter(f) { WLF.f = f; drawWatch(WL.d); }
+function wlJump(id) { WLF.f = 'all'; drawWatch(WL.d); var e = document.getElementById('wlc_' + id); if (e) { e.scrollIntoView({ behavior: 'smooth', block: 'center' }); e.classList.add('flash'); setTimeout(function () { e.classList.remove('flash'); }, 1600); } }
+function wlWheelAsk(id, on) {
+  sheet('<h2>' + (on ? 'Add ' : 'Remove ') + esc(id) + (on ? ' to' : ' from') + ' the wheel list?</h2><p class="sm" style="white-space:normal">' + (on ? esc(id) + ' will be included when the put finder looks for puts to sell, and it will show on the Wheel tab. Nothing is ordered.' : esc(id) + ' will no longer be searched for puts. Open puts on it stay as they are.') + '</p><div class="btns"><button class="btn" id="wlwb" onclick="wlWheelGo(\'' + esc(id) + '\',' + on + ')">' + (on ? 'Yes, add it' : 'Yes, remove it') + '</button><button class="btn ghost" onclick="closeSheet()">Cancel</button></div>');
+}
+function wlWheelGo(id, on) { var b = $('#wlwb'); busy(b, true); api(on ? 'wheel_add' : 'wheel_remove', { asset: id }).then(function (r) { closeSheet(); wlDone(r); }).catch(function (e) { busy(b, false); toast(e.message); }); }
+drawWatch = function (d) {
+  var rows = d.rows || [], h = '', ready = rows.filter(function (r) { return r.zone === 'IN ZONE' || r.zone === 'BELOW ZONE'; });
+  if (ready.length) h += '<div class="card" style="border-left:4px solid var(--ok,#0a8)"><h3>Ready to trade today · ' + ready.length + '</h3><div class="chips" style="flex-wrap:wrap">' + ready.map(function (r) { return '<button class="chip on" onclick="wlJump(\'' + esc(r.asset) + '\')">' + esc(r.asset) + ' ' + (r.price === null ? '' : num(r.price, 2)) + '</button>'; }).join('') + '</div><div class="tiny" style="margin-top:4px">Priced at or below the top of your entry zone. Tap one to jump to it.</div></div>';
+  else if (d.near) h += '<div class="note" style="margin:0 4px 10px">None ready today. ' + d.near + ' within ' + d.nearPct + '% of the zone.</div>';
+  var nW = rows.filter(function (r) { return r.onWheel; }).length, pills = [['all', 'All · ' + rows.length], ['wheel', 'Wheel eligible · ' + nW], ['long', 'Long-term / commodities · ' + (rows.length - nW)]];
+  h += '<div class="chips" style="margin-bottom:8px">' + pills.map(function (p) { return '<button class="chip ' + (WLF.f === p[0] ? 'on' : '') + '" onclick="wlFilter(\'' + p[0] + '\')">' + p[1] + '</button>'; }).join('') + '</div>';
+  var shown = rows.filter(function (r) { return WLF.f === 'all' || (WLF.f === 'wheel' ? r.onWheel : !r.onWheel); });
+  if (!shown.length) h += '<div class="card"><div class="empty">' + (rows.length ? 'Nothing in this filter.' : 'Nothing on your watchlist yet.') + '</div></div>';
+  shown.forEach(function (w) { h += wlCard(w); });
+  h += '<div class="note">Zone = the price range you would like to buy in. A bell alert rings when a stock enters its zone. Prices are the last close. The Wheel switch adds or removes a stock from the put finder, after you confirm.</div><div style="height:24px"></div>';
+  $('#main').innerHTML = h;
+};
 
 </script>
 </body>
