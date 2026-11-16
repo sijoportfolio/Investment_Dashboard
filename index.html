@@ -174,7 +174,7 @@ body.nocomet #comet{display:none}
 .runner.ahead .fi{display:inline-block;animation:gallop .45s ease-in-out infinite alternate}@keyframes gallop{from{transform:translateY(0) rotate(-4deg)}to{transform:translateY(-3px) rotate(4deg)}}
 .fire{position:absolute;font-size:12px;pointer-events:none;animation:flick .6s ease-in-out infinite alternate}.fire.f1{left:-10px;top:-8px}.fire.f2{left:14px;top:-11px;animation-delay:.25s}@keyframes flick{from{transform:scale(.8);opacity:.75}to{transform:scale(1.2) translateY(-3px);opacity:1}}
 @media (prefers-reduced-motion:reduce){.runner .fi,.fire{animation:none}}
-.fxadj{font-size:10px;letter-spacing:.04em;text-transform:uppercase;border:1px solid var(--line);border-radius:8px;padding:0 5px;color:var(--tx3);margin-left:2px}.combo{font-size:11px;font-weight:600;border-radius:9px;padding:1px 7px;background:var(--accbg);color:var(--acc)}.gstrip{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.gstrip .g{font-size:13px;border:1px solid var(--line);border-radius:12px;padding:4px 10px;background:var(--card)}.gstrip .g.warn{border-color:var(--warn);color:var(--warn)}.gstrip .g.bad{border-color:var(--neg);color:var(--neg)}.wlg{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:10px;margin-top:10px;font-size:13px}.wl52{position:relative;height:6px;border-radius:3px;background:var(--line,#dde);margin:4px 0}.wl52 i{position:absolute;top:-3px;width:3px;height:12px;border-radius:2px;background:var(--acc,#0a8);transform:translateX(-50%)}.tgl{width:40px;height:24px;border-radius:12px;border:0;background:var(--line,#ccd);position:relative;padding:0;flex:none}.tgl i{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s}.tgl.on{background:var(--acc,#0a8)}.tgl.on i{left:19px}.wlc.flash{outline:2px solid var(--acc,#0a8)}@media(max-width:380px){.wlg{grid-template-columns:1fr 1fr}}</style>
+.fxadj{font-size:10px;letter-spacing:.04em;text-transform:uppercase;border:1px solid var(--line);border-radius:8px;padding:0 5px;color:var(--tx3);margin-left:2px}.combo{font-size:11px;font-weight:600;border-radius:9px;padding:1px 7px;background:var(--accbg);color:var(--acc)}.gstrip{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.gstrip .g{font-size:13px;border:1px solid var(--line);border-radius:12px;padding:4px 10px;background:var(--card)}.gstrip .g.warn{border-color:var(--warn);color:var(--warn)}.gstrip .g.bad{border-color:var(--neg);color:var(--neg)}.wlg{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:10px;margin-top:10px;font-size:13px}.wl52{position:relative;height:6px;border-radius:3px;background:var(--line,#dde);margin:4px 0}.wl52 i{position:absolute;top:-3px;width:3px;height:12px;border-radius:2px;background:var(--acc,#0a8);transform:translateX(-50%)}.tgl{width:40px;height:24px;border-radius:12px;border:0;background:var(--line,#ccd);position:relative;padding:0;flex:none}.tgl i{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s}.tgl.on{background:var(--acc,#0a8)}.tgl.on i{left:19px}.wlc.flash{outline:2px solid var(--acc,#0a8)}@media(max-width:380px){.wlg{grid-template-columns:1fr 1fr}}.wlsug{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px}</style>
 </head>
 <body>
 <div id="prog"></div><svg id="comet" aria-hidden="true"><rect id="cometr" x="1.5" y="1.5" rx="38" ry="38" pathLength="100"/></svg><div id="app"><div id="top"></div><div id="ptr"></div><div id="main"></div></div>
@@ -2541,6 +2541,35 @@ drawWatch = function (d) {
   h += '<div class="note">Zone = the price range you would like to buy in. A bell alert rings when a stock enters its zone. Prices are the last close. The Wheel switch adds or removes a stock from the put finder, after you confirm.</div><div style="height:24px"></div>';
   $('#main').innerHTML = h;
 };
+
+
+/* ---------- Watchlist: suggested ceiling (suggest and confirm; nothing changes without your tap) ---------- */
+function wlSugHtml(w) {
+  var h = '', flag = (w.reviewCeiling ? ' <span class="badge WARN">Review ceiling</span>' : '') + (w.suggestMoved ? ' <span class="badge WARN">Suggestion has moved</span>' : '');
+  if (w.suggestedHigh !== null && w.suggestedHigh !== undefined) {
+    var same = w.high && Math.abs(w.suggestedHigh / w.high - 1) < 0.005;
+    h += '<div class="wlsug"><div class="tiny" style="white-space:normal">' + (w.high ? 'Your ceiling <b>' + num(w.high, 2) + '</b>' : 'No ceiling set') + ' · Suggested <b>' + num(w.suggestedHigh, 2) + '</b> <span class="tiny">(' + esc(w.suggestAnchor) + ')</span>' + flag + '</div>' + (same || !can('settings') ? '' : '<button class="btn ghost sm" onclick="wlUseAsk(\'' + esc(w.asset) + '\')">Use ' + num(w.suggestedHigh, 2) + '</button>') + '</div>';
+  } else h += '<div class="tiny" style="margin-top:6px;white-space:normal">' + (w.high ? 'Your ceiling <b>' + num(w.high, 2) + '</b> · ' : '') + 'no suggestion yet' + flag + '</div>';
+  if (w.reviewCeiling) h += '<div class="tiny" style="white-space:normal">The price is more than ' + w.reviewDriftPct + '% above your ceiling. Raise it if you would now pay more; otherwise leave the stock waiting.</div>';
+  (w.suggestNotes || []).forEach(function (n) { h += '<div class="tiny" style="white-space:normal">' + esc(n) + '</div>'; });
+  return h;
+}
+var _wlCard0 = wlCard;
+wlCard = function (w) { var c = _wlCard0(w), k = c.indexOf('<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px'); return k < 0 ? c : c.slice(0, k) + wlSugHtml(w) + c.slice(k); };
+function wlUseAsk(id) {
+  var w = (WL.d.rows || []).filter(function (x) { return x.asset === id; })[0]; if (!w) return;
+  sheet('<h2>Use the suggested ceiling for ' + esc(id) + '?</h2><p class="sm" style="white-space:normal">Your ceiling ' + (w.high ? 'changes from <b>' + num(w.high, 2) + '</b> to ' : 'becomes ') + '<b>' + num(w.suggestedHigh, 2) + '</b> (' + esc(w.suggestAnchor) + '). The "in zone" alert and the wheel\'s own-below price follow it.</p><div class="btns"><button class="btn" id="wlub" onclick="wlUseGo(\'' + esc(id) + '\')">Yes, use it</button><button class="btn ghost" onclick="closeSheet()">Cancel</button></div>');
+}
+function wlUseGo(id) {
+  var w = (WL.d.rows || []).filter(function (x) { return x.asset === id; })[0], b = $('#wlub'); if (!w) return; busy(b, true);
+  api('watch_save', { asset: id, low: w.low || '', high: w.suggestedHigh, priority: w.priority || '', notes: w.notes || '' }).then(function (r) { closeSheet(); wlDone(r); }).catch(function (e) { busy(b, false); toast(e.message); });
+}
+function wlFields(w) {
+  var low = w && w.low;
+  return '<div class="grid2">' + (low ? '<label class="field"><span>Zone: from (optional)</span><input id="wll" inputmode="decimal" value="' + low + '"></label>' : '<input id="wll" type="hidden" value="">') + '<label class="field"><span>Ceiling: buy at or below</span><input id="wlh" inputmode="decimal" value="' + (w && w.high || '') + '"></label></div>'
+    + (w && w.suggestedHigh ? '<div class="tiny" style="white-space:normal;margin:-4px 0 8px">Suggested <b>' + num(w.suggestedHigh, 2) + '</b> (' + esc(w.suggestAnchor) + ') <a href="#" onclick="$(\'#wlh\').value=' + w.suggestedHigh + ';return false">use it</a></div>' + (w.suggestNotes || []).map(function (n) { return '<div class="tiny" style="white-space:normal">' + esc(n) + '</div>'; }).join('') : '')
+    + '<label class="field"><span>Priority</span><input id="wlp" list="wlpl" value="' + esc(w && w.priority || '') + '"><datalist id="wlpl"><option>NOW</option><option>PATIENT</option><option>OPPORTUNISTIC</option></datalist></label><label class="field"><span>Notes</span><input id="wln" value="' + esc(w && w.notes || '') + '"></label>';
+}
 
 </script>
 </body>
