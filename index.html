@@ -2712,6 +2712,50 @@ function cxToggle(ev, key) {
 })();
 function wpPaint() { var e = $('#wperf'); if (e) { e.innerHTML = wpHtml(); cxApply(e); } }
 
+
+/* ---------- More: seven rows; the rest live as segments inside them ---------- */
+var SEGS = {
+  money: [['cash', 'Cash', function () { return scr('holdings'); }], ['tx', 'Transactions', function () { return scr('transactions'); }], ['income', 'Income', function () { return scr('income'); }]],
+  tax: [['tax', 'Overview', function () { return isAll() && scr('plan'); }], ['harvest', 'India harvest', function () { return isAll() && scr('plan'); }], ['taxfile', 'Filing', function () { return isAll() && scr('plan'); }]],
+  plan: [['plan', 'Goal & risk', function () { return isAll() && scr('plan'); }], ['rebal', 'Rebalance', function () { return isAll() && scr('plan'); }], ['thesis', 'Research', function () { return isAll() && scr('plan'); }]],
+  health: [['prices', 'Prices', function () { return can('prices'); }], ['review', 'Trade check', function () { return can('review'); }]],
+  settings: [['settings', 'Settings', function () { return can('settings'); }], ['keys', 'Access keys', function () { return can('keys'); }], ['tools', 'Owner tools', function () { return can('owner_jobs'); }], ['account', 'This device', function () { return true; }]]
+};
+var SEG_OF = { cash: 'money', tx: 'money', income: 'money', tax: 'tax', harvest: 'tax', taxfile: 'tax', plan: 'plan', rebal: 'plan', thesis: 'plan', thstock: 'plan', prices: 'health', review: 'health', settings: 'settings', keys: 'settings', tools: 'settings', account: 'settings' };
+function segCur() { return S.stack.length ? S.stack[S.stack.length - 1].name : S.tab; }
+function segHtml(name) {
+  var g = SEG_OF[name]; if (!g) return '';
+  var items = SEGS[g].filter(function (x) { return x[2](); }); if (items.length < 2) return '';
+  var cur = name === 'thstock' ? 'thesis' : name;
+  return '<div id="segbar" class="chips" style="grid-column:1/-1;margin:0 0 10px;flex-wrap:wrap">' + items.map(function (x) { return '<button class="chip ' + (x[0] === cur ? 'on' : '') + '" onclick="segGo(\'' + x[0] + '\')">' + x[1] + '</button>'; }).join('') + '</div>';
+}
+function segGo(name) {
+  if (segCur() === name) return;
+  S.stack = [{ tab: S.tab === 'plan' ? 'more' : S.tab, name: name }]; $('#main').classList.toggle('cols', name === 'plan'); $('#main').scrollTop = 0; SCREENS[name]();
+}
+(function () {
+  var m = document.getElementById('main'); if (!m || !window.MutationObserver) return;
+  new MutationObserver(function () {
+    var name = segCur(); if (!SEG_OF[name]) return; if (m.firstElementChild && m.firstElementChild.id === 'segbar') return;
+    var h = segHtml(name); if (h) m.insertAdjacentHTML('afterbegin', h);
+  }).observe(m, { childList: true });
+})();
+SCREENS.more = function () {
+  setTop('More', '', false, '');
+  var full = isAll(), it = function (ic, t, s, fn, show) { return show === false ? '' : '<div class="row tap" onclick="' + fn + '"><div class="avatar" style="font-size:18px">' + ic + '</div><div class="grow"><div class="t">' + t + '</div><div class="s">' + s + '</div></div><span class="mut">›</span></div>'; };
+  var money = scr('holdings') ? 'cash' : (scr('transactions') ? 'tx' : 'income'), health = can('prices') ? 'prices' : 'review', setting = can('settings') ? 'settings' : (can('keys') ? 'keys' : (can('owner_jobs') ? 'tools' : 'account'));
+  var html = '<div class="card" style="padding:4px 16px">'
+    + it('➕', 'Add entry', 'Buy, sell, deposit, withdrawal, transfer, dividend, interest, fee, option', 'addEntry()', can('trade_entry'))
+    + it('💰', 'Money', 'Cash, transactions, income', "push('" + money + "')", scr('holdings') || scr('transactions') || scr('income'))
+    + it('🎯', 'Plan', 'Goal and risk, rebalance, research', "go('plan')", full && scr('plan'))
+    + it('🧾', 'Tax', 'Gains, India harvest, filing', "push('tax')", full && scr('plan'))
+    + it('🩺', 'Data health', 'Prices and trade check', "push('" + health + "')", can('prices') || can('review'))
+    + it('👪', 'People & shares', 'Children\'s accounts and shares of your holdings', "push('people')", full && can('settings'))
+    + it('⚙️', can('settings') ? 'Settings' : 'This device', can('settings') ? 'Limits, targets, keys, owner tools, this device' : 'Face ID or fingerprint, your key, theme', "push('" + setting + "')") + '</div>'
+    + '<div class="note" style="text-align:center">Portfolio v8 · data as of ' + (S.ov ? dshort(S.ov.asOf) : '') + '</div><div class="tiny" style="text-align:center;opacity:.7">' + esc(screenInfo()) + '</div><div class="card"><h3>Screen fit (iPhone)</h3><div class="tiny">If the bottom icons are cut off, press + ; if a gap shows under them, press − . Applies to the home-screen app.</div><div class="btns" style="align-items:center"><button class="btn ghost sm" onclick="trimScreen(-2)">−</button><b class="num" id="trimv">' + trimNow() + ' px</b><button class="btn ghost sm" onclick="trimScreen(2)">+</button></div></div>';
+  $('#main').innerHTML = html;
+};
+
 </script>
 </body>
 </html>
