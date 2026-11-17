@@ -1238,15 +1238,15 @@ function drawWheel(d) {
   if (!d.shortlist.length) h += '<div class="empty">Nothing on the list yet. Add a stock below.</div>';
   d.shortlist.forEach(function (s) {
     var zb = s.zone === 'IN ZONE' ? 'OK' : s.zone === 'NEAR' ? 'WARN' : '';
-    h += '<div class="row tap" onclick="whEdit(\'' + esc(s.asset) + '\')"><div class="grow"><div class="t">' + esc(s.asset) + ' <span class="badge ' + zb + '">' + esc(s.zone || 'NO PRICE LIMIT') + '</span> <span class="tiny">' + esc(s.stage.toLowerCase()) + '</span></div><div class="s">' + (s.price === null ? 'no price yet' : num(s.price, 2)) + (s.priceStale && s.price !== null ? ' (old)' : '') + ' · own below ' + (s.ownBelow ? num(s.ownBelow, 2) : 'not set') + (s.abovePct !== null && s.zone !== 'IN ZONE' ? ' · ' + pcp(s.abovePct) + ' above' : '') + ' · ' + (esc(s.group) || '<span class="neg">sector not set</span>') + (s.ungrouped ? ' (no group)' : '') + '</div></div><div class="r">' + (s.oneContract.cashUsd ? '<div class="tiny">1 contract</div><b>' + usd(s.oneContract.cashUsd) + '</b>' : '') + '</div></div>';
+    h += '<div class="row tap" onclick="whEdit(\'' + esc(s.asset) + '\')"><div class="grow"><div class="t">' + esc(s.asset) + ' <span class="badge ' + zb + '">' + esc(s.zone === 'IN ZONE' ? 'AT YOUR PRICE' : (s.zone || 'NO PRICE LIMIT')) + '</span> <span class="tiny">' + esc(s.stage.toLowerCase()) + '</span></div><div class="s">' + (s.price === null ? 'no price yet' : num(s.price, 2)) + (s.priceStale && s.price !== null ? ' (old)' : '') + ' · own below ' + (s.ownBelow ? num(s.ownBelow, 2) : 'not set') + (s.abovePct !== null && s.zone !== 'IN ZONE' ? ' · ' + pcp(s.abovePct) + ' above' : '') + ' · ' + (esc(s.group) || '<span class="neg">sector not set</span>') + (s.ungrouped ? ' (no group)' : '') + '</div></div><div class="r">' + (s.oneContract.cashUsd ? '<div class="tiny">1 contract</div><b>' + usd(s.oneContract.cashUsd) + '</b>' : '') + '</div></div>';
   });
   if (can('settings')) h += '<div class="btns"><button class="btn ghost sm" onclick="whAdd()">+ Add a stock</button></div>';
   h += '</div>';
   /* 5 suggestions */
   if (d.suggestions.length && can('settings')) {
     h += '<div class="card"><h3>Suggested to add</h3>' + d.suggestions.map(function (s) {
-      return '<div class="row"><div class="grow"><div class="t">' + esc(s.asset) + ' <span class="tiny">' + esc(s.reason) + '</span></div><div class="s">' + esc(s.name || '') + (s.price !== null ? ' · ' + num(s.price, 2) : '') + (s.entryHigh ? ' · your entry zone tops out at ' + num(s.entryHigh, 0) : '') + '</div></div><button class="btn sm ghost" onclick="whAddQuick(\'' + esc(s.asset) + '\',this)">Add</button></div>';
-    }).join('') + '<div class="note">"Own below" starts at the top of your entry zone (watchlist) and can be changed by tapping the stock.</div></div>';
+      return '<div class="row"><div class="grow"><div class="t">' + esc(s.asset) + ' <span class="tiny">' + esc(s.reason) + '</span></div><div class="s">' + esc(s.name || '') + (s.price !== null ? ' · ' + num(s.price, 2) : '') + (s.entryHigh ? ' · your buy price is ' + num(s.entryHigh, 0) : '') + '</div></div><button class="btn sm ghost" onclick="whAddQuick(\'' + esc(s.asset) + '\',this)">Add</button></div>';
+    }).join('') + '<div class="note">"Own below" starts at your buy price (watchlist) and can be changed by tapping the stock.</div></div>';
   }
   h += '<div class="btns" style="margin:0 0 10px"><button class="btn ghost sm" onclick="push(\'watchlist\')">Open your watchlist</button></div><div class="note">Next on this board: rolls and their alerts. Nothing here places an order.</div>';
   $('#main').innerHTML = h;
@@ -1382,26 +1382,26 @@ function fndAllow(asset, kind, date, off) {
 /* ---------- Watchlist: stocks you want to buy at the right price ---------- */
 var WL = { d: null };
 SCREENS.watchlist = function () {
-  setTop('Watchlist', 'Entry zones and warnings', false, can('settings') ? '<button class="iconbtn" onclick="wlAdd()" aria-label="Add">' + ico('plus') + '</button>' : '');
+  setTop('Watchlist', 'Buy prices and alerts', false, can('settings') ? '<button class="iconbtn" onclick="wlAdd()" aria-label="Add">' + ico('plus') + '</button>' : '');
   if (!isAll()) { $('#main').innerHTML = '<div class="empty">The watchlist is for the owner.</div>'; return; }
   load('watchlist', {}, function (d) { WL.d = d; drawWatch(d); }, S.force); S.force = false;
 };
 function drawWatch(d) {
   var h = '';
-  if (d.inZone) h += '<div class="banner"><b>' + d.inZone + ' stock' + (d.inZone === 1 ? ' is' : 's are') + ' in your entry zone</b> · ' + d.rows.filter(function (r) { return r.zone === 'IN ZONE' || r.zone === 'BELOW ZONE'; }).map(function (r) { return esc(r.asset); }).join(', ') + '</div>';
+  if (d.inZone) h += '<div class="banner"><b>' + d.inZone + ' stock' + (d.inZone === 1 ? ' is' : 's are') + ' at or below your buy price</b> · ' + d.rows.filter(function (r) { return r.zone === 'IN ZONE' || r.zone === 'BELOW ZONE'; }).map(function (r) { return esc(r.asset); }).join(', ') + '</div>';
   else if (d.near) h += '<div class="note" style="margin:0 4px 10px">' + d.near + ' within ' + d.nearPct + '% of its zone. None inside yet.</div>';
   if (!d.rows.length) h += '<div class="card"><div class="empty">Nothing on your watchlist yet.</div></div>';
   d.rows.forEach(function (w) {
-    var zb = w.zone === 'IN ZONE' ? 'OK' : w.zone === 'BELOW ZONE' ? 'WARN' : w.zone === 'NEAR' ? 'WARN' : '', zt = w.zone === 'IN ZONE' ? 'IN ZONE' : w.zone === 'BELOW ZONE' ? 'BELOW ZONE' : (w.distPct !== null ? pcp(Math.abs(w.distPct)) + ' above zone' : (w.price === null ? 'NO PRICE YET' : 'NO ZONE SET'));
-    var zone = (w.low && w.high) ? num(w.low, 2) + ' – ' + num(w.high, 2) : (w.high ? 'up to ' + num(w.high, 2) : 'not set');
+    var zb = w.zone === 'IN ZONE' ? 'OK' : w.zone === 'BELOW ZONE' ? 'WARN' : w.zone === 'NEAR' ? 'WARN' : '', zt = w.zone === 'IN ZONE' ? 'AT YOUR PRICE' : w.zone === 'BELOW ZONE' ? 'BELOW ZONE' : (w.distPct !== null ? pcp(Math.abs(w.distPct)) + ' above your price' : (w.price === null ? 'NO PRICE YET' : 'NO BUY PRICE SET'));
+    var zone = w.high ? num(w.high, 2) : 'not set';
     var wk = (w.week52Low && w.week52High) ? '52 weeks ' + num(w.week52Low, 2) + ' – ' + num(w.week52High, 2) : '';
     h += '<div class="card' + (w.zone === 'IN ZONE' ? ' alert INFO' : '') + '"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div style="min-width:0"><div><b>' + esc(w.asset) + '</b> <span class="badge ' + zb + '">' + esc(zt) + '</span>' + (w.held ? ' <span class="badge MANUAL">held · add more</span>' : '') + (w.priority ? ' <span class="badge">' + esc(w.priority) + '</span>' : '') + (w.onWheel ? ' <span class="badge MANUAL">wheel</span>' : '') + '</div>'
       + '<div class="tiny" style="margin-top:3px">' + [esc(w.name || ''), esc(w.sector || '')].filter(Boolean).join(' · ') + '</div></div><div class="r" style="text-align:right"><div class="num" style="font-weight:700">' + (w.price === null ? 'no price yet' : num(w.price, 2)) + '</div>' + (w.priceStale && w.price !== null ? '<div class="tiny neg">old price</div>' : '<div class="tiny">' + esc(w.ccy || '') + '</div>') + '</div></div>'
-      + kv('Entry zone', zone) + (wk ? kv('Range', wk) : '') + (w.upsidePct !== null ? kv('Analyst target', num(w.target, 0) + ' <span class="tiny">(' + pc(w.upsidePct, 0) + ')</span>') : '') + (w.conviction !== null ? kv('Conviction', w.conviction + ' / 10') : '')
+      + kv('Buy at or below', zone) + (wk ? kv('Range', wk) : '') + (w.upsidePct !== null ? kv('Analyst target', num(w.target, 0) + ' <span class="tiny">(' + pc(w.upsidePct, 0) + ')</span>') : '') + (w.conviction !== null ? kv('Conviction', w.conviction + ' / 10') : '')
       + (w.notes ? '<div class="tiny" style="margin-top:6px">' + esc(w.notes) + '</div>' : '')
       + (can('settings') ? '<div class="btns"><button class="btn ghost sm" onclick="wlEdit(\'' + esc(w.asset) + '\')">Edit</button><button class="btn ghost sm" onclick="wlWheel(\'' + esc(w.asset) + '\',' + (w.onWheel ? 'false' : 'true') + ',this)">' + (w.onWheel ? 'Off the wheel list' : '+ Wheel list') + '</button></div>' : '') + '</div>';
   });
-  h += '<div class="note">Zone = the price range you would like to buy in. In zone means the price is at or below the top of it. A bell alert is raised when a stock enters its zone. Prices are the last close.</div>';
+  h += '<div class="note">Buy price = the most you would pay. A stock is ready when its price is at or below it, and a bell alert rings then. Prices are the last close.</div>';
   $('#main').innerHTML = h;
 }
 function wlDone(r) { toast(r.message); clearCache(); S.force = true; SCREENS.watchlist(); }
@@ -2079,7 +2079,7 @@ function drawRebal(d) {
   else h += '<div class="tiny" style="margin:6px 0">No stock scores ' + o.compellingScore + ' or more with an intact thesis, so nothing is compelling enough to concentrate on right now.</div>';
   h += '<div class="card" style="margin:8px 0;background:var(--card2)"><b>Wait</b><div class="tiny">' + esc(o.wait.cashNote) + '</div>' + (can('review') ? '<div class="btns"><button class="btn ghost sm" onclick="rbChoose(\'WAIT\')">Wait this month</button></div>' : '') + '</div></div>';
   /* opportunities */
-  if (d.opps.length) h += '<div class="card"><h3>Best opportunities now</h3><div class="tiny" style="margin-bottom:4px">Thesis intact only. Score 0 to 100 from your entry zone, upside, conviction, distance below the high and the 200-day average, analyst rating and P/E against its own history. India is left out: it gets no new money.</div>' + d.opps.map(function (x) { return '<div class="row tap" onclick="scoreCard(\'' + esc(x.asset) + '\')"><div class="avatar" style="font-size:11px">' + esc(x.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(x.asset) + (x.held ? '' : ' <span class="badge MANUAL">not held</span>') + (x.overGroup ? ' <span class="badge WARN">theme over target</span>' : '') + (x.onWheel ? ' <span class="badge">wheel</span>' : '') + '</div><div class="s">' + esc(x.region) + ' · ' + esc(x.group) + (x.zone ? ' · ' + esc(x.zone) : '') + '</div></div><div class="r"><div class="t num"><b>' + x.score + '</b> ›</div></div></div>'; }).join('') + '<div class="tiny">Tap a stock to see exactly how its score was built, and to change the weights.</div></div>';
+  if (d.opps.length) h += '<div class="card"><h3>Best opportunities now</h3><div class="tiny" style="margin-bottom:4px">Thesis intact only. Score 0 to 100 from your buy price, upside, conviction, distance below the high and the 200-day average, analyst rating and P/E against its own history. India is left out: it gets no new money.</div>' + d.opps.map(function (x) { return '<div class="row tap" onclick="scoreCard(\'' + esc(x.asset) + '\')"><div class="avatar" style="font-size:11px">' + esc(x.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(x.asset) + (x.held ? '' : ' <span class="badge MANUAL">not held</span>') + (x.overGroup ? ' <span class="badge WARN">theme over target</span>' : '') + (x.onWheel ? ' <span class="badge">wheel</span>' : '') + '</div><div class="s">' + esc(x.region) + ' · ' + esc(x.group) + (x.zone ? ' · ' + esc(x.zone) : '') + '</div></div><div class="r"><div class="t num"><b>' + x.score + '</b> ›</div></div></div>'; }).join('') + '<div class="tiny">Tap a stock to see exactly how its score was built, and to change the weights.</div></div>';
   /* sells */
   var hasSell = (d.sells && d.sells.length) || (d.thesisSells && d.thesisSells.length);
   h += '<div class="card"><h3>Sell suggestions</h3>';
@@ -2092,7 +2092,7 @@ function drawRebal(d) {
   $('#main').innerHTML = h;
 }
 var SCF = { w: {} };
-var SC_PARTS = [['zone', 'Price against your entry zone', function (r) { return r.zone ? esc(r.zone) + (r.price ? ' · price ' + num(r.price, 2) : '') : 'no entry zone set'; }, 'Below zone 100, in zone 85, near 40, above 0'],
+var SC_PARTS = [['zone', 'Price against your buy price', function (r) { return r.zone ? esc(r.zone === 'IN ZONE' ? 'at your price' : r.zone.toLowerCase()) + (r.price ? ' · price ' + num(r.price, 2) : '') : 'no buy price set'; }, 'At or below your buy price 85, near it 40, above it 0'],
   ['upside', 'Upside to analyst target', function (r) { return r.upsidePct === null || r.upsidePct === undefined ? 'no target' : pc(r.upsidePct, 0); }, 'Full marks at the upside set in rb_upside_full_pct'],
   ['conviction', 'Your conviction', function (r) { return r.conviction === null || r.conviction === undefined ? 'not set' : r.conviction + ' / 10'; }, 'Conviction score times 10'],
   ['dip', 'Fall from 52-week high', function (r) { return r.ddPct === undefined ? 'not enough price history' : pc(r.ddPct, 0) + ' below the high of ' + num(r.high, 2); }, 'Full marks at the fall set in rb_dd_full_pct'],
@@ -2452,8 +2452,8 @@ function whListCard(d) {
   if (!d.shortlist.length) h += '<div class="empty">Nothing on the list yet. Add a stock below.</div>';
   d.shortlist.forEach(function (s) {
     var zb = s.zone === 'IN ZONE' ? 'OK' : s.zone === 'NEAR' ? 'WARN' : '';
-    h += '<div class="row tap" onclick="whEdit(\'' + esc(s.asset) + '\')"><div class="grow"><div class="t">' + esc(s.asset) + ' <span class="badge ' + zb + '">' + esc(s.zone || 'NO PRICE LIMIT') + '</span> <span class="tiny">' + esc(s.stage.toLowerCase()) + '</span>' + (s.reviewCeiling ? ' <span class="badge WARN">Review ceiling</span>' : '') + '</div><div class="s">' + (s.price === null ? 'no price yet' : num(s.price, 2)) + (s.priceStale && s.price !== null ? ' (old)' : '') + ' · own below ' + (s.ownBelow ? num(s.ownBelow, 2) : 'not set') + (s.abovePct !== null && s.zone !== 'IN ZONE' ? ' · ' + pcp(s.abovePct) + ' above' : '') + ' · ' + (esc(s.group) || '<span class="neg">sector not set</span>') + (s.ungrouped ? ' (no group)' : '') + '</div>'
-      + (s.reviewCeiling ? '<div class="tiny">The price is more than ' + d.rules.reviewDriftPct + '% above your ceiling. If you would now pay more, raise it; if not, this stock is waiting.</div>' : '') + '</div><div class="r">' + (s.oneContract.cashUsd ? '<div class="tiny">1 contract</div><b>' + usd(s.oneContract.cashUsd) + '</b>' : '') + '</div></div>';
+    h += '<div class="row tap" onclick="whEdit(\'' + esc(s.asset) + '\')"><div class="grow"><div class="t">' + esc(s.asset) + ' <span class="badge ' + zb + '">' + esc(s.zone === 'IN ZONE' ? 'AT YOUR PRICE' : (s.zone || 'NO PRICE LIMIT')) + '</span> <span class="tiny">' + esc(s.stage.toLowerCase()) + '</span>' + (s.reviewCeiling ? ' <span class="badge WARN">Review price</span>' : '') + '</div><div class="s">' + (s.price === null ? 'no price yet' : num(s.price, 2)) + (s.priceStale && s.price !== null ? ' (old)' : '') + ' · own below ' + (s.ownBelow ? num(s.ownBelow, 2) : 'not set') + (s.abovePct !== null && s.zone !== 'IN ZONE' ? ' · ' + pcp(s.abovePct) + ' above' : '') + ' · ' + (esc(s.group) || '<span class="neg">sector not set</span>') + (s.ungrouped ? ' (no group)' : '') + '</div>'
+      + (s.reviewCeiling ? '<div class="tiny">The price is more than ' + d.rules.reviewDriftPct + '% above your own-below price. If you would now pay more, raise it; if not, this stock is waiting.</div>' : '') + '</div><div class="r">' + (s.oneContract.cashUsd ? '<div class="tiny">1 contract</div><b>' + usd(s.oneContract.cashUsd) + '</b>' : '') + '</div></div>';
   });
   if (can('settings')) h += '<div class="btns"><button class="btn ghost sm" onclick="whAdd()">+ Add a stock</button></div>';
   return h + '</div>';
@@ -2461,8 +2461,8 @@ function whListCard(d) {
 function whSuggCard(d) {
   if (!(d.suggestions.length && can('settings'))) return '';
   return '<div class="card"><h3>Suggested to add</h3>' + d.suggestions.map(function (s) {
-    return '<div class="row"><div class="grow"><div class="t">' + esc(s.asset) + ' <span class="tiny">' + esc(s.reason) + '</span></div><div class="s">' + esc(s.name || '') + (s.price !== null ? ' · ' + num(s.price, 2) : '') + (s.entryHigh ? ' · your entry zone tops out at ' + num(s.entryHigh, 0) : '') + '</div></div><button class="btn sm ghost" onclick="whAddQuick(\'' + esc(s.asset) + '\',this)">Add</button></div>';
-  }).join('') + '<div class="note">"Own below" starts at the top of your entry zone (watchlist) and can be changed by tapping the stock.</div></div>';
+    return '<div class="row"><div class="grow"><div class="t">' + esc(s.asset) + ' <span class="tiny">' + esc(s.reason) + '</span></div><div class="s">' + esc(s.name || '') + (s.price !== null ? ' · ' + num(s.price, 2) : '') + (s.entryHigh ? ' · your buy price is ' + num(s.entryHigh, 0) : '') + '</div></div><button class="btn sm ghost" onclick="whAddQuick(\'' + esc(s.asset) + '\',this)">Add</button></div>';
+  }).join('') + '<div class="note">"Own below" starts at your buy price (watchlist) and can be changed by tapping the stock.</div></div>';
 }
 drawWheel = function (d) {
   var h = '<div class="tiny" style="text-transform:uppercase;font-weight:700;letter-spacing:.07em;margin:2px 2px 6px">Bankroll and yield pulse</div>' + whCashCard(d) + '<div id="wperf">' + wpHtml() + '</div>'
@@ -2517,13 +2517,13 @@ function wlRange(w) {
   return '<div class="tiny">52 weeks</div><div class="wl52"><i style="left:' + p.toFixed(0) + '%"></i></div><div class="tiny" style="display:flex;justify-content:space-between"><span>' + num(w.week52Low, 2) + '</span><span>' + num(w.week52High, 2) + '</span></div>';
 }
 function wlCard(w) {
-  var zb = w.zone === 'IN ZONE' ? 'OK' : (w.zone === 'BELOW ZONE' || w.zone === 'NEAR') ? 'WARN' : '', zt = w.zone === 'IN ZONE' ? 'IN ZONE' : w.zone === 'BELOW ZONE' ? 'BELOW ZONE' : (w.distPct !== null ? pcp(Math.abs(w.distPct)) + ' above zone' : (w.price === null ? 'NO PRICE YET' : 'NO ZONE SET'));
-  var zone = (w.low && w.high) ? num(w.low, 2) + ' – ' + num(w.high, 2) : (w.high ? 'up to ' + num(w.high, 2) : 'not set');
+  var zb = w.zone === 'IN ZONE' ? 'OK' : (w.zone === 'BELOW ZONE' || w.zone === 'NEAR') ? 'WARN' : '', zt = w.zone === 'IN ZONE' ? 'AT YOUR PRICE' : w.zone === 'BELOW ZONE' ? 'BELOW ZONE' : (w.distPct !== null ? pcp(Math.abs(w.distPct)) + ' above your price' : (w.price === null ? 'NO PRICE YET' : 'NO BUY PRICE SET'));
+  var zone = w.high ? num(w.high, 2) : 'not set';
   var tgt = w.upsidePct !== null && w.target ? '<b>' + num(w.target, 0) + '</b> <span class="tiny ' + cls(w.upsidePct) + '">' + pc(w.upsidePct, 0) + ' vs price</span>' : '<span class="tiny">none stored</span>';
   return '<div class="card wlc' + (w.zone === 'IN ZONE' ? ' alert INFO' : '') + '" id="wlc_' + esc(w.asset) + '">'
     + '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div style="min-width:0"><b>' + esc(w.asset) + '</b> <span class="badge ' + zb + '">' + esc(zt) + '</span>' + (w.held ? ' <span class="badge MANUAL">held</span>' : '') + '<div class="tiny" style="margin-top:2px;white-space:normal">' + [esc(w.name || ''), esc(w.sector || '')].filter(Boolean).join(' · ') + '</div></div>'
     + '<div style="text-align:right"><div class="num" style="font-weight:700">' + (w.price === null ? '–' : num(w.price, 2)) + '</div>' + (w.priceStale && w.price !== null ? '<div class="tiny neg">old price</div>' : '<div class="tiny">' + esc(w.ccy || '') + '</div>') + '</div></div>'
-    + '<div class="wlg"><div><div class="tiny">Entry zone</div><div>' + zone + '</div></div><div>' + wlRange(w) + '</div><div><div class="tiny">Analyst target</div><div>' + tgt + '</div></div></div>'
+    + '<div class="wlg"><div><div class="tiny">Buy at or below</div><div>' + zone + '</div></div><div>' + wlRange(w) + '</div><div><div class="tiny">Analyst target</div><div>' + tgt + '</div></div></div>'
     + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap"><div class="tiny" style="min-width:0;white-space:normal">' + (w.conviction !== null ? 'Conviction <b>' + w.conviction + '/10</b>' : 'No conviction set') + (w.priority ? ' · ' + esc(w.priority) : '') + (w.notes ? ' · ' + esc(w.notes) : '') + '</div>'
     + (can('settings') ? '<div style="display:flex;gap:8px;align-items:center"><button class="btn ghost sm" onclick="wlEdit(\'' + esc(w.asset) + '\')">Edit</button><button class="tgl ' + (w.onWheel ? 'on' : '') + '" role="switch" aria-checked="' + (w.onWheel ? 'true' : 'false') + '" aria-label="Wheel list" onclick="wlWheelAsk(\'' + esc(w.asset) + '\',' + (w.onWheel ? 'false' : 'true') + ')"><i></i></button><span class="tiny">Wheel</span></div>' : '') + '</div></div>';
 }
@@ -2535,26 +2535,26 @@ function wlWheelAsk(id, on) {
 function wlWheelGo(id, on) { var b = $('#wlwb'); busy(b, true); api(on ? 'wheel_add' : 'wheel_remove', { asset: id }).then(function (r) { closeSheet(); wlDone(r); }).catch(function (e) { busy(b, false); toast(e.message); }); }
 drawWatch = function (d) {
   var rows = d.rows || [], h = '', ready = rows.filter(function (r) { return r.zone === 'IN ZONE' || r.zone === 'BELOW ZONE'; });
-  if (ready.length) h += '<div class="card" style="border-left:4px solid var(--ok,#0a8)"><h3>Ready to trade today · ' + ready.length + '</h3><div class="chips" style="flex-wrap:wrap">' + ready.map(function (r) { return '<button class="chip on" onclick="wlJump(\'' + esc(r.asset) + '\')">' + esc(r.asset) + ' ' + (r.price === null ? '' : num(r.price, 2)) + '</button>'; }).join('') + '</div><div class="tiny" style="margin-top:4px">Priced at or below the top of your entry zone. Tap one to jump to it.</div></div>';
+  if (ready.length) h += '<div class="card" style="border-left:4px solid var(--ok,#0a8)"><h3>Ready to trade today · ' + ready.length + '</h3><div class="chips" style="flex-wrap:wrap">' + ready.map(function (r) { return '<button class="chip on" onclick="wlJump(\'' + esc(r.asset) + '\')">' + esc(r.asset) + ' ' + (r.price === null ? '' : num(r.price, 2)) + '</button>'; }).join('') + '</div><div class="tiny" style="margin-top:4px">Priced at or below your buy price. Tap one to jump to it.</div></div>';
   else if (d.near) h += '<div class="note" style="margin:0 4px 10px">None ready today. ' + d.near + ' within ' + d.nearPct + '% of the zone.</div>';
   var nW = rows.filter(function (r) { return r.onWheel; }).length, pills = [['all', 'All · ' + rows.length], ['wheel', 'Wheel eligible · ' + nW], ['long', 'Long-term / commodities · ' + (rows.length - nW)]];
   h += '<div class="chips" style="margin-bottom:8px">' + pills.map(function (p) { return '<button class="chip ' + (WLF.f === p[0] ? 'on' : '') + '" onclick="wlFilter(\'' + p[0] + '\')">' + p[1] + '</button>'; }).join('') + '</div>';
   var shown = rows.filter(function (r) { return WLF.f === 'all' || (WLF.f === 'wheel' ? r.onWheel : !r.onWheel); });
   if (!shown.length) h += '<div class="card"><div class="empty">' + (rows.length ? 'Nothing in this filter.' : 'Nothing on your watchlist yet.') + '</div></div>';
   shown.forEach(function (w) { h += wlCard(w); });
-  h += '<div class="note">Zone = the price range you would like to buy in. A bell alert rings when a stock enters its zone. Prices are the last close. The Wheel switch adds or removes a stock from the put finder, after you confirm.</div><div style="height:24px"></div>';
+  h += '<div class="note">Buy price = the most you would pay. A bell alert rings when a stock reaches its buy price. Prices are the last close. The Wheel switch adds or removes a stock from the put finder, after you confirm.</div><div style="height:24px"></div>';
   $('#main').innerHTML = h;
 };
 
 
 /* ---------- Watchlist: suggested ceiling (suggest and confirm; nothing changes without your tap) ---------- */
 function wlSugHtml(w) {
-  var h = '', flag = (w.reviewCeiling ? ' <span class="badge WARN">Review ceiling</span>' : '') + (w.suggestMoved ? ' <span class="badge WARN">Suggestion has moved</span>' : '');
+  var h = '', flag = (w.reviewCeiling ? ' <span class="badge WARN">Review buy price</span>' : '') + (w.suggestMoved ? ' <span class="badge WARN">Suggestion has moved</span>' : '');
   if (w.suggestedHigh !== null && w.suggestedHigh !== undefined) {
     var same = w.high && Math.abs(w.suggestedHigh / w.high - 1) < 0.005;
-    h += '<div class="wlsug"><div class="tiny" style="white-space:normal">' + (w.high ? 'Your ceiling <b>' + num(w.high, 2) + '</b>' : 'No ceiling set') + ' · Suggested <b>' + num(w.suggestedHigh, 2) + '</b> <span class="tiny">(' + esc(w.suggestAnchor) + ')</span>' + flag + '</div>' + (same || !can('settings') ? '' : '<button class="btn ghost sm" onclick="wlUseAsk(\'' + esc(w.asset) + '\')">Use ' + num(w.suggestedHigh, 2) + '</button>') + '</div>';
-  } else h += '<div class="tiny" style="margin-top:6px;white-space:normal">' + (w.high ? 'Your ceiling <b>' + num(w.high, 2) + '</b> · ' : '') + 'no suggestion yet' + flag + '</div>';
-  if (w.reviewCeiling) h += '<div class="tiny" style="white-space:normal">The price is more than ' + w.reviewDriftPct + '% above your ceiling. Raise it if you would now pay more; otherwise leave the stock waiting.</div>';
+    h += '<div class="wlsug"><div class="tiny" style="white-space:normal">' + (w.high ? 'Your buy price <b>' + num(w.high, 2) + '</b>' : 'No buy price set') + ' · Suggested <b>' + num(w.suggestedHigh, 2) + '</b> <span class="tiny">(' + esc(w.suggestAnchor) + ')</span>' + flag + '</div>' + (same || !can('settings') ? '' : '<button class="btn ghost sm" onclick="wlUseAsk(\'' + esc(w.asset) + '\')">Use ' + num(w.suggestedHigh, 2) + '</button>') + '</div>';
+  } else h += '<div class="tiny" style="margin-top:6px;white-space:normal">' + (w.high ? 'Your buy price <b>' + num(w.high, 2) + '</b> · ' : '') + 'no suggestion yet' + flag + '</div>';
+  if (w.reviewCeiling) h += '<div class="tiny" style="white-space:normal">The price is more than ' + w.reviewDriftPct + '% above your buy price. Raise it if you would now pay more; otherwise leave the stock waiting.</div>';
   (w.suggestNotes || []).forEach(function (n) { h += '<div class="tiny" style="white-space:normal">' + esc(n) + '</div>'; });
   return h;
 }
@@ -2562,15 +2562,14 @@ var _wlCard0 = wlCard;
 wlCard = function (w) { var c = _wlCard0(w), k = c.indexOf('<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px'); return k < 0 ? c : c.slice(0, k) + wlSugHtml(w) + c.slice(k); };
 function wlUseAsk(id) {
   var w = (WL.d.rows || []).filter(function (x) { return x.asset === id; })[0]; if (!w) return;
-  sheet('<h2>Use the suggested ceiling for ' + esc(id) + '?</h2><p class="sm" style="white-space:normal">Your ceiling ' + (w.high ? 'changes from <b>' + num(w.high, 2) + '</b> to ' : 'becomes ') + '<b>' + num(w.suggestedHigh, 2) + '</b> (' + esc(w.suggestAnchor) + '). The "in zone" alert and the wheel\'s own-below price follow it.</p><div class="btns"><button class="btn" id="wlub" onclick="wlUseGo(\'' + esc(id) + '\')">Yes, use it</button><button class="btn ghost" onclick="closeSheet()">Cancel</button></div>');
+  sheet('<h2>Use the suggested buy price for ' + esc(id) + '?</h2><p class="sm" style="white-space:normal">Your buy price ' + (w.high ? 'changes from <b>' + num(w.high, 2) + '</b> to ' : 'becomes ') + '<b>' + num(w.suggestedHigh, 2) + '</b> (' + esc(w.suggestAnchor) + '). The bell alert and the wheel\'s own-below price follow it.</p><div class="btns"><button class="btn" id="wlub" onclick="wlUseGo(\'' + esc(id) + '\')">Yes, use it</button><button class="btn ghost" onclick="closeSheet()">Cancel</button></div>');
 }
 function wlUseGo(id) {
   var w = (WL.d.rows || []).filter(function (x) { return x.asset === id; })[0], b = $('#wlub'); if (!w) return; busy(b, true);
-  api('watch_save', { asset: id, low: w.low || '', high: w.suggestedHigh, priority: w.priority || '', notes: w.notes || '' }).then(function (r) { closeSheet(); wlDone(r); }).catch(function (e) { busy(b, false); toast(e.message); });
+  api('watch_save', { asset: id, low: '', high: w.suggestedHigh, priority: w.priority || '', notes: w.notes || '' }).then(function (r) { closeSheet(); wlDone(r); }).catch(function (e) { busy(b, false); toast(e.message); });
 }
 function wlFields(w) {
-  var low = w && w.low;
-  return '<div class="grid2">' + (low ? '<label class="field"><span>Zone: from (optional)</span><input id="wll" inputmode="decimal" value="' + low + '"></label>' : '<input id="wll" type="hidden" value="">') + '<label class="field"><span>Ceiling: buy at or below</span><input id="wlh" inputmode="decimal" value="' + (w && w.high || '') + '"></label></div>'
+  return '<input id="wll" type="hidden" value=""><label class="field"><span>Buy at or below (the most you would pay)</span><input id="wlh" inputmode="decimal" value="' + (w && w.high || '') + '"></label>'
     + (w && w.suggestedHigh ? '<div class="tiny" style="white-space:normal;margin:-4px 0 8px">Suggested <b>' + num(w.suggestedHigh, 2) + '</b> (' + esc(w.suggestAnchor) + ') <a href="#" onclick="$(\'#wlh\').value=' + w.suggestedHigh + ';return false">use it</a></div>' + (w.suggestNotes || []).map(function (n) { return '<div class="tiny" style="white-space:normal">' + esc(n) + '</div>'; }).join('') : '')
     + '<label class="field"><span>Priority</span><input id="wlp" list="wlpl" value="' + esc(w && w.priority || '') + '"><datalist id="wlpl"><option>NOW</option><option>PATIENT</option><option>OPPORTUNISTIC</option></datalist></label><label class="field"><span>Notes</span><input id="wln" value="' + esc(w && w.notes || '') + '"></label>';
 }
@@ -2682,7 +2681,7 @@ var CX_RULES = [
   [/^Cash by account/, 'wfree', false, function (o, d) { return d ? (d.capital || []).length + (((d.capital || []).length === 1) ? ' account · ' : ' accounts · ') + usd(d.freeUsd) + ' free' : ''; }],
   [/^Wheel performance/, 'wperf', false, function () { var d = WP.d; return d && !d.empty ? usdS(d.resultUsd) + ' ' + (d.periodWord || '') + (d.annualised && d.annualisedOnBankrollPct !== null ? ' · ' + pc(d.annualisedOnBankrollPct, 1) + ' a year' : '') : (WP.err ? 'could not load, tap to retry' : 'loading…'); }],
   [/^If all \d+ put|^If every open put/, 'wassign', false, function (o, d) { if (!d || !d.assignAll) return ''; var g = (d.groupImpact || [])[0]; return usd(d.assignAll.cashUsd) + ' cash needed' + (g ? ' · ' + g.group + ' ' + pcp(g.beforePct, 0) + ' → ' + pcp(g.afterPct, 0) : ''); }],
-  [/^Your wheel list/, 'wlist', false, function (o, d) { if (!d) return ''; var z = d.shortlist.filter(function (s) { return s.zone === 'IN ZONE'; }).length; return d.shortlist.length + (d.shortlist.length === 1 ? ' stock' : ' stocks') + ' · ' + z + ' in zone'; }],
+  [/^Your wheel list/, 'wlist', false, function (o, d) { if (!d) return ''; var z = d.shortlist.filter(function (s) { return s.zone === 'IN ZONE'; }).length; return d.shortlist.length + (d.shortlist.length === 1 ? ' stock' : ' stocks') + ' · ' + z + ' at your price'; }],
   [/^Wheel results/, 'wres', false, function (o, d) { return d && d.results ? usd(d.results.premiumUsd) + ' premium kept' : ''; }],
   [/^Shares you hold from the wheel/, 'wbasis', false, function (o, d) { return d && d.basis ? d.basis.filter(function (b) { return b.fromPut || b.coveredShares > 0; }).length + ' stocks' : ''; }],
   [/^Suggested to add/, 'wsugg', false, function (o, d) { return d && d.suggestions ? d.suggestions.length + ' suggestions' : ''; }]
