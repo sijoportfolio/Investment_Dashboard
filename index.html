@@ -171,7 +171,7 @@ body.nocomet #comet{display:none}
 .pole.passed{background:#DFC15A}.pole.passed::before{border-left-color:#DFC15A;opacity:1}.pole.goal::before{border:0;width:24px;height:16px;background:repeating-conic-gradient(#eee 0 25%,#111 0 50%) 0 0/8px 8px;opacity:1}.pole.goal{background:var(--tx)}
 .mlabel{position:absolute;top:46px;font-size:11px;line-height:1.25;text-align:center;color:var(--tx3);transform:translateX(-50%);white-space:nowrap}.mlabel b{display:block;font-weight:600;color:var(--tx2)}.mlabel.last{transform:translateX(-85%)}
 .runner.fig{position:absolute;top:10px;font-size:24px;line-height:1;cursor:pointer;z-index:2;transform:translateX(-50%)}.runner .fl{display:inline-block}.runner.ahead .fl,.runner.pace .fl,.runner.behind .fl{transform:scaleX(-1)}
-.runner.ahead .fi{display:inline-block;animation:gallop .45s ease-in-out infinite alternate}@keyframes gallop{from{transform:translateY(0) rotate(-4deg)}to{transform:translateY(-3px) rotate(4deg)}}
+.runner.ahead.near .fi{display:inline-block;animation:gallop .45s ease-in-out infinite alternate}@keyframes gallop{from{transform:translateY(0) rotate(-4deg)}to{transform:translateY(-3px) rotate(4deg)}}
 .fire{position:absolute;font-size:12px;pointer-events:none;animation:flick .6s ease-in-out infinite alternate}.fire.f1{left:-10px;top:-8px}.fire.f2{left:14px;top:-11px;animation-delay:.25s}@keyframes flick{from{transform:scale(.8);opacity:.75}to{transform:scale(1.2) translateY(-3px);opacity:1}}
 @media (prefers-reduced-motion:reduce){.runner .fi,.fire{animation:none}}
 .fxadj{font-size:10px;letter-spacing:.04em;text-transform:uppercase;border:1px solid var(--line);border-radius:8px;padding:0 5px;color:var(--tx3);margin-left:2px}.combo{font-size:11px;font-weight:600;border-radius:9px;padding:1px 7px;background:var(--accbg);color:var(--acc)}.gstrip{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.gstrip .g{font-size:13px;border:1px solid var(--line);border-radius:12px;padding:4px 10px;background:var(--card)}.gstrip .g.warn{border-color:var(--warn);color:var(--warn)}.gstrip .g.bad{border-color:var(--neg);color:var(--neg)}.wlg{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:10px;margin-top:10px;font-size:13px}.wl52{position:relative;height:6px;border-radius:3px;background:var(--line,#dde);margin:4px 0}.wl52 i{position:absolute;top:-3px;width:3px;height:12px;border-radius:2px;background:var(--acc,#0a8);transform:translateX(-50%)}.tgl{width:40px;height:24px;border-radius:12px;border:0;background:var(--line,#ccd);position:relative;padding:0;flex:none}.tgl i{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s}.tgl.on{background:var(--acc,#0a8)}.tgl.on i{left:19px}.wlc.flash{outline:2px solid var(--acc,#0a8)}@media(max-width:380px){.wlg{grid-template-columns:1fr 1fr}}.wlsug{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px}.cxh{display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;-webkit-tap-highlight-color:transparent}.cxt h3{margin:0}.cxs{margin-top:2px;white-space:normal}.cxv{font-size:20px;color:var(--tx3,#888);transition:transform .15s;flex:none}.cx.open>.cxh .cxv{transform:rotate(90deg)}.cx.open>.cxb{margin-top:8px}.cx.closed>.cxb{display:none}</style>
@@ -537,7 +537,8 @@ function runnerHtml(j, vis) {
   var gap = j.gapToPlan, pg = (j.planValueToday > 0 && gap !== null && gap !== undefined) ? gap / j.planValueToday * 100 : 0, band = j.paceBandPct !== undefined ? j.paceBandPct : 1;
   var mood = (gap === null || gap === undefined) ? 'pace' : pg > band ? 'ahead' : pg < -band ? 'behind' : 'pace', face = mood === 'ahead' ? '🐎' : mood === 'behind' ? '🐢' : '🏃';
   var label = (gap === null || gap === undefined) ? 'No plan yet' : (gap >= 0 ? usd(gap) + ' ahead of the plan path' : usd(-gap) + ' behind the plan path');
-  return '<div class="runner fig ' + mood + '" style="left:' + Math.max(2, Math.min(98, vis)) + '%" onclick="event.stopPropagation();runnerTap(\'' + label.replace(/'/g, '') + '\')" title="' + esc(label) + '"><span class="fi"><span class="fl">' + face + '</span></span></div>';
+  var near = false; (j.milestones || []).forEach(function (m) { if (j.valueToday !== undefined && Math.abs(j.valueToday - m.amount) <= (j.bounceBandUsd !== undefined ? j.bounceBandUsd : 0)) near = true; });
+  return '<div class="runner fig ' + mood + (near ? ' near' : '') + '" style="left:' + Math.max(2, Math.min(98, vis)) + '%" onclick="event.stopPropagation();runnerTap(\'' + label.replace(/'/g, '') + '\')" title="' + esc(label) + '"><span class="fi"><span class="fl">' + face + '</span></span></div>';
 }
 function journeyWhy(j) {
   if (j.gapToPlan === null || j.gapToPlan === undefined) return '';
@@ -1074,7 +1075,7 @@ SCREENS.keys = function () {
   setTop('Access keys', 'Keys are never stored in the Sheet', true, '<button class="iconbtn" onclick="newKey()">' + ico('plus') + '</button>');
   api('keys_list').then(function (d) { S.keysData = d; $('#main').innerHTML = '<div class="card" style="padding:4px 16px">' + d.rows.map(function (k) { return '<div class="row tap" onclick="keyDetail(\'' + esc(k.id) + '\')"><div class="avatar">' + esc(String(k.name || '?').slice(0, 2).toUpperCase()) + '</div><div class="grow"><div class="t">' + esc(k.name) + ' <span class="badge ' + (k.status === 'ACTIVE' ? 'OK' : 'ERROR') + '">' + esc(k.role) + (k.status !== 'ACTIVE' ? ' · ' + esc(k.status) : '') + '</span></div><div class="s">' + esc(k.id) + ' · accounts ' + esc(k.accounts || 'ALL') + ' · last used ' + esc(k.lastUsed || 'never') + '</div></div></div>'; }).join('') + '</div><div class="note">A key is shown once when created. Lost one? Revoke it and make a new one. Locked out completely? In the Sheet: Portfolio v8 → Reset admin key.</div>'; }).catch(function (e) { $('#main').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
 };
-var KSCR = [['holdings', 'Holdings'], ['transactions', 'Transactions'], ['income', 'Income'], ['reports', 'Reports'], ['plan', 'Plan & risk and Tax'], ['options', 'Options'], ['wheel', 'Wheel'], ['watchlist', 'Watchlist']];
+var KSCR = [['holdings', 'Holdings'], ['transactions', 'Transactions'], ['income', 'Income'], ['plan', 'Plan & risk and Tax'], ['options', 'Options'], ['wheel', 'Wheel'], ['watchlist', 'Watchlist']];
 function keyScr(k) { var v = String(k.screens === undefined || k.screens === null ? '' : k.screens).trim().toLowerCase(); return v === '' ? KSCR.map(function (x) { return x[0]; }) : (v === 'none' ? [] : v.split(',').map(function (x) { return x.trim(); })); }
 function keyScrSet(role) { var on = role === 'ADMIN'; [].forEach.call(document.querySelectorAll('.kscr'), function (c) { c.checked = on; }); }
 function newKey(id) {
@@ -2755,6 +2756,96 @@ SCREENS.more = function () {
     + '<div class="note" style="text-align:center">Portfolio v8 · data as of ' + (S.ov ? dshort(S.ov.asOf) : '') + '</div><div class="tiny" style="text-align:center;opacity:.7">' + esc(screenInfo()) + '</div><div class="card"><h3>Screen fit (iPhone)</h3><div class="tiny">If the bottom icons are cut off, press + ; if a gap shows under them, press − . Applies to the home-screen app.</div><div class="btns" style="align-items:center"><button class="btn ghost sm" onclick="trimScreen(-2)">−</button><b class="num" id="trimv">' + trimNow() + ' px</b><button class="btn ghost sm" onclick="trimScreen(2)">+</button></div></div>';
   $('#main').innerHTML = html;
 };
+
+
+/* ---------- Report button: exports what the screen is showing (PDF, Excel, CSV) ----------
+   One button in the top bar of Holdings/Closed, Transactions, Income, Tax and Plan. The old Reports screen is gone from More. */
+var RPK = {
+  holdings: [['holdings', 'Holdings (as filtered)'], ['lots', 'Lots and holding period']],
+  closed: [['closed', 'Closed positions (as filtered)']],
+  transactions: [['transactions', 'Transactions (as filtered)'], ['fees', 'Fees paid']],
+  income: [['income', 'Dividends and interest (as filtered)'], ['optincome', 'Options income'], ['fees', 'Fees paid']],
+  tax: [['tax', 'Tax by year'], ['capgains', 'Per-sale capital gains (for the return)'], ['lots', 'Lots and days to long-term']],
+  plan: [['planrisk', 'Limits and risk'], ['overview', 'Portfolio overview']]
+};
+var RPN = { holdings: 'Holdings', lots: 'Lots', closed: 'Closed positions', transactions: 'Transactions', income: 'Income', fees: 'Fees paid', optincome: 'Options income', tax: 'Tax by year', capgains: 'Capital gains', planrisk: 'Limits and risk', overview: 'Overview' };
+var RP = { screen: '', kind: '', fmt: (function () { try { return REP.fmt || 'pdf'; } catch (e) { return 'pdf'; } })(), fy: '', cg: null };
+function repBtn(screen) { return '<button class="iconbtn" onclick="repOpen(\'' + screen + '\')" aria-label="Report" title="Report">' + ico('list') + '</button>'; }
+(function () {
+  var t0 = setTop, map = { 'Holdings': 'holdings', 'Transactions': 'transactions', 'Income': 'income', 'Tax': 'tax', 'Tax filing': 'tax', 'Plan & risk': 'plan' };
+  setTop = function (title, sub, left, right) { var s = map[title]; return t0(title, sub, left, (right || '') + (s && scr(s === 'tax' || s === 'plan' ? 'plan' : s) ? repBtn(s) : '')); };
+})();
+function repScreenKey(s) { return s === 'holdings' && HLD.mode === 'closed' ? 'closed' : s; }
+function repOpen(screen) {
+  screen = repScreenKey(screen); if (screen !== 'tax' && screen !== 'plan' && !RPK[screen]) return;
+  if (screen === 'tax' && !isAll()) return toast('Tax reports are for the owner.'); if (screen === 'plan' && !isAll()) return toast('Not available for your key.');
+  RP.screen = screen; if (!RPK[screen].some(function (k) { return k[0] === RP.kind; })) RP.kind = RPK[screen][0][0];
+  if (screen === 'tax' && !RP.cg) api('taxcg').then(function (d) { RP.cg = d.rows || []; if (RP.screen === 'tax' && $('#rpfy')) repSheet(); }).catch(function () {});
+  repSheet();
+}
+function repSheet() {
+  var ks = RPK[RP.screen], filt = (RP.screen === 'holdings' || RP.screen === 'closed' || RP.screen === 'transactions' || RP.screen === 'income') && (typeof tfAny === 'function' && (RP.screen === 'transactions' || RP.screen === 'income' ? tfAny() : filtAny()));
+  var fys = {}; (RP.cg || []).forEach(function (r) { fys[r.fy] = 1; }); fys = Object.keys(fys).sort().reverse();
+  var h = '<h2>Report</h2>' + (ks.length > 1 ? '<h3 style="margin:8px 0 6px">What</h3><div class="chips" style="flex-wrap:wrap">' + ks.map(function (k) { return '<button class="chip ' + (RP.kind === k[0] ? 'on' : '') + '" onclick="RP.kind=\'' + k[0] + '\';repSheet()">' + k[1] + '</button>'; }).join('') + '</div>' : '<div class="mut sm">' + ks[0][1] + '</div>')
+    + (RP.kind === 'capgains' ? '<label class="field"><span>Financial year</span><select id="rpfy" onchange="RP.fy=this.value"><option value="">All years</option>' + fys.map(function (f) { return '<option' + (RP.fy === f ? ' selected' : '') + '>' + esc(f) + '</option>'; }).join('') + '</select></label>' : '')
+    + (filt ? '<div class="note" style="margin:6px 0">Your current filters and search are applied to this report.</div>' : '')
+    + '<h3 style="margin:10px 0 6px">Format</h3><div class="seg"><button class="' + (RP.fmt === 'pdf' ? 'on' : '') + '" onclick="RP.fmt=\'pdf\';repSheet()">PDF</button><button class="' + (RP.fmt === 'xls' ? 'on' : '') + '" onclick="RP.fmt=\'xls\';repSheet()">Excel</button><button class="' + (RP.fmt === 'csv' ? 'on' : '') + '" onclick="RP.fmt=\'csv\';repSheet()">CSV</button></div>'
+    + '<div class="note">' + (RP.fmt === 'pdf' ? 'Opens the print sheet: choose "Save as PDF".' : RP.fmt === 'xls' ? 'Downloads a spreadsheet for Excel (numbers stay numbers).' : 'Downloads a plain .csv file.') + '</div>'
+    + (RP.kind === 'lots' ? '<div class="note">One line per purchase lot still held, with days held, long or short term and the days left until it turns long-term. India long-term needs more than 12 months.</div>' : '') + (RP.kind === 'capgains' ? '<div class="note">One line per sale lot, in rupees, as the return needs it. Sale value less cost; selling charges are shown separately. Estimates for your CA to check.</div>' : '')
+    + '<div class="btns"><button class="btn" id="rpb" onclick="repRun(this)">Create report</button><button class="btn ghost" onclick="closeSheet()">Cancel</button></div>';
+  sheet(h);
+}
+function repFilteredRows(kind) {
+  if (kind === 'holdings') return sorted(hrows().filter(passF).filter(function (r) { return passB(r, false); }).filter(function (r) { return matchQ(r, HLD.q); }), HLD, HSORT);
+  if (kind === 'closed') return sorted(((S.mem.closed || {}).rows || []).filter(passF).filter(function (r) { return passB(r, true); }).filter(function (r) { return matchQ(r, CLD.q); }), CLD, CSORT);
+  if (kind === 'transactions') return ((S.tx || {}).rows || []).filter(function (r) { return tfPass(r, 'date'); });
+  if (kind === 'income') return (((S.mem.income) || {}).rows || []).filter(function (r) { return tfPass(r, 'date'); });
+  return [];
+}
+function repTable(kind, d) {
+  var T = function (head, rows) { return { head: head, rows: rows }; }, dm = function (r, k) { return (r.dims || {})[k] || ''; };
+  if (kind === 'holdings') return T(['Asset', 'Name', 'Account', 'Broker', 'Region', 'Sector', 'Qty', 'Price', 'Currency', 'Value (local)', 'Cost (local)', 'Value USD', 'Cost USD', 'Gain USD', 'Gain %', 'Weight %', 'Price status'], d.map(function (r) { return [r.asset, r.name, r.acct, dm(r, 'broker'), dm(r, 'region'), dm(r, 'sector'), r.qty, r.price, r.currency, r.valueLocal, r.cost, r.valueUsd, r.costUsd, r.unrealizedUsd, r.unrealizedPct, r.weightPct, r.health]; }));
+  if (kind === 'lots') { var out = []; d.forEach(function (r) { var tq = 0; (r.lots || []).forEach(function (l) { tq += l.qty; }); (r.lots || []).forEach(function (l) { var share = tq > 0 ? l.qty / tq : 0, val = (r.valueUsd || 0) * share, gain = val - (l.costUsd || 0); out.push([r.asset, r.acct, dm(r, 'region'), l.date, l.qty, l.days, l.term === 'LONG' ? 'Long' : 'Short', l.term === 'LONG' ? 0 : Math.max(0, 366 - l.days), l.costUsd, Math.round(val * 100) / 100, Math.round(gain * 100) / 100, l.cost, r.currency]); }); });
+    out.sort(function (a, b) { return a[6] === b[6] ? a[7] - b[7] : (a[6] === 'Short' ? -1 : 1); }); return T(['Asset', 'Account', 'Region', 'Bought', 'Qty', 'Days held', 'Term', 'Days to long-term', 'Cost USD', 'Value USD (approx)', 'Gain USD (approx)', 'Cost (local)', 'Currency'], out); }
+  if (kind === 'closed') return T(['Asset', 'Name', 'Account', 'Broker', 'Region', 'First bought', 'Last sold', 'Currency', 'Gain (local)', 'Proceeds USD', 'Cost USD', 'Gain USD', 'Return %'], d.map(function (r) { return [r.asset, r.name, r.acct, r.broker, dm(r, 'region'), r.firstBuy, r.lastSell, r.ccy, r.gainLocal, r.proceedsUsd, r.costUsd, r.gainUsd, r.returnPct]; }));
+  if (kind === 'transactions') return T(['Date', 'ID', 'Account', 'Type', 'Action', 'Asset', 'Qty', 'Price', 'Currency', 'Gross', 'Fees', 'Status'], d.map(function (r) { return [r.date, r.id, r.acct, r.type, r.action, r.asset, r.qty, r.price, r.ccy, r.gross, r.fees, r.status]; }));
+  if (kind === 'income') return T(['Date', 'Account', 'Asset', 'Currency', 'Gross', 'Tax withheld', 'USD'], d.map(function (r) { return [r.date, r.acct, r.asset, r.ccy, r.gross, r.tds, r.usd]; }));
+  if (kind === 'fees') { var fr = d.rows.map(function (r) { return [r.date, r.acct, r.broker, r.asset, r.kind, r.action, r.ccy, r.fees, r.feesUsd, r.pctOfTrade]; }); fr.push([], ['TOTAL', '', '', '', '', '', '', '', d.totalUsd, '']); (d.byYear || []).forEach(function (y) { fr.push(['Year ' + y.year, '', '', '', '', '', '', '', y.usd, '']); }); (d.byBroker || []).forEach(function (b) { fr.push([b.broker, '', '', '', '', '', '', '', b.usd, '']); }); return T(['Date', 'Account', 'Broker', 'Asset', 'Kind', 'Action', 'Currency', 'Fee (local)', 'Fee USD', '% of trade'], fr); }
+  if (kind === 'optincome') { var orows = []; (d.closed || []).forEach(function (r) { orows.push(['Closed', r.id, r.asset, r.type, r.strike, r.contracts, r.openDate, r.closeDate, r.how, r.ccy, r.premium, r.openFees, r.pnl, r.pnlUsd]); }); (d.open || []).forEach(function (r) { orows.push(['Open', r.id, r.asset, r.type, r.strike, r.contracts, r.openDate, r.expiry, 'OPEN', r.ccy, r.premium, null, null, null]); });
+    orows.sort(function (a, b) { return String(b[7]) < String(a[7]) ? -1 : 1; }); orows.push([], ['TOTAL closed result USD', '', '', '', '', '', '', '', '', '', '', '', '', d.closedPnlUsd], ['Premium in open options USD', '', '', '', '', '', '', '', '', '', '', '', '', d.openPremiumUsd]); return T(['Status', 'Option', 'Asset', 'Type', 'Strike', 'Contracts', 'Opened', 'Closed or expiry', 'How', 'Currency', 'Premium (local)', 'Opening fees', 'Result (local)', 'Result USD'], orows); }
+  if (kind === 'capgains') return T(['Financial year', 'Sell date', 'Buy date', 'Asset', 'Name', 'Account', 'Broker', 'Quantity', 'Sale value INR', 'Cost INR', 'Selling charges INR', 'Gain INR (sale value less cost)', 'Term', 'Type', 'Origin', 'Reference'], d.map(function (r) { return [r.fy, r.sellDate, r.buyDate, r.asset, r.name, r.acct, r.broker, r.qty, r.saleValue, r.cost, r.sellFees, r.gainAsFiled, r.term, r.cls, r.origin, r.ref]; }));
+  return reportTable(kind, d);
+}
+function repOut(title, shName, t, fmt) {
+  var fn = title.replace(/[^\w.-]+/g, '_'), save = function (blob, ext) { var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fn + ext; document.body.appendChild(a); a.click(); a.remove(); toast('Downloaded ' + t.rows.length + ' lines'); };
+  if (fmt === 'xls') {
+    var x = function (c) { return String(c === null || c === undefined ? '' : c).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+    var xml = '<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="h"><Font ss:Bold="1"/></Style></Styles><Worksheet ss:Name="' + x(shName).slice(0, 30) + '"><Table><Row>' + t.head.map(function (h) { return '<Cell ss:StyleID="h"><Data ss:Type="String">' + x(h) + '</Data></Cell>'; }).join('') + '</Row>' + t.rows.map(function (r) { return '<Row>' + r.map(function (c) { return (typeof c === 'number' && isFinite(c)) ? '<Cell><Data ss:Type="Number">' + c + '</Data></Cell>' : '<Cell><Data ss:Type="String">' + x(c) + '</Data></Cell>'; }).join('') + '</Row>'; }).join('') + '</Table></Worksheet></Workbook>';
+    save(new Blob([xml], { type: 'application/vnd.ms-excel' }), '.xml');
+  } else if (fmt === 'csv') {
+    var csv = [t.head].concat(t.rows).map(function (r) { return r.map(function (c) { c = c === null || c === undefined ? '' : String(c); return /[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c; }).join(','); }).join('\n');
+    save(new Blob(['﻿' + csv], { type: 'text/csv' }), '.csv');
+  } else {
+    $('#reportdoc').innerHTML = '<h1>' + esc(title) + '</h1><p>Figures in USD unless stated. Generated ' + new Date().toLocaleString() + '.</p><table><tr>' + t.head.map(function (h, i) { return '<th' + (i ? ' class="r"' : '') + '>' + esc(h) + '</th>'; }).join('') + '</tr>' + t.rows.map(function (r) { return '<tr>' + r.map(function (c) { return '<td' + (typeof c === 'number' ? ' class="r"' : '') + '>' + esc(typeof c === 'number' ? num(c, 2) : c) + '</td>'; }).join('') + '</tr>'; }).join('') + '</table>';
+    setTimeout(function () { window.print(); }, 120);
+  }
+}
+function repRun(btn) {
+  var kind = RP.kind, fmt = RP.fmt; busy(btn, true);
+  var stamp = (S.ov && S.ov.asOf) || '', fin = function (d, filtered, fyNote) {
+    var t = repTable(kind, d); if (kind === 'capgains') { t = repTable(kind, d); }
+    if (!t.rows.length || (kind === 'fees' && !d.rows.length) || (kind === 'optincome' && !(d.closed || []).length && !(d.open || []).length)) { toast('Nothing to report for this choice.'); busy(btn, false); return; }
+    closeSheet(); repOut('Portfolio · ' + RPN[kind] + (fyNote ? ' · ' + fyNote : '') + (filtered ? ' (filtered)' : '') + ' · ' + stamp, RPN[kind], t, fmt); busy(btn, false);
+  };
+  try {
+    if (kind === 'holdings' || kind === 'closed' || kind === 'transactions' || kind === 'income') { var rows = repFilteredRows(kind), anyF = (kind === 'transactions' || kind === 'income') ? tfAny() : filtAny(); return fin(rows, anyF); }
+    if (kind === 'fees') return api('fees').then(function (d) { var rows = d.rows.filter(function (r) { return tfPass(r, 'date'); }); var f = tfAny(); if (f) { var by = {}, bb = {}, tt = 0; rows.forEach(function (r) { var y = String(r.date).slice(0, 4); by[y] = (by[y] || 0) + r.feesUsd; bb[r.broker] = (bb[r.broker] || 0) + r.feesUsd; tt += r.feesUsd; }); d = Object.assign({}, d, { rows: rows, totalUsd: Math.round(tt * 100) / 100, byYear: Object.keys(by).sort().map(function (y) { return { year: y, usd: Math.round(by[y] * 100) / 100 }; }), byBroker: Object.keys(bb).sort().map(function (b) { return { broker: b, usd: Math.round(bb[b] * 100) / 100 }; }) }); } fin(d, f); }).catch(function (e) { toast(e.message); busy(btn, false); });
+    if (kind === 'optincome') return api('options').then(function (d) { fin(d, false); }).catch(function (e) { toast(e.message); busy(btn, false); });
+    if (kind === 'lots') return fin(hrows().filter(function (r) { return !RP.screen || RP.screen !== 'holdings' || (passF(r) && passB(r, false) && matchQ(r, HLD.q)); }), RP.screen === 'holdings' && filtAny());
+    if (kind === 'capgains') return api('taxcg').then(function (d) { var fy = RP.fy; fin((d.rows || []).filter(function (r) { return !fy || r.fy === fy; }), false, fy || 'all years'); }).catch(function (e) { toast(e.message); busy(btn, false); });
+    return api(kind).then(function (d) { fin(d, false); }).catch(function (e) { toast(e.message); busy(btn, false); });
+  } catch (e) { toast(e.message); busy(btn, false); }
+}
 
 </script>
 </body>
