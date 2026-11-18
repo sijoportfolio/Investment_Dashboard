@@ -2505,8 +2505,8 @@ wpHtml = function () {
     + kv('Per year', d.annualised ? (d.annualisedOnBankrollPct === null ? '–' : '<b>' + pc(d.annualisedOnBankrollPct, 1) + '</b>') : '<span class="tiny">not annualised: under 90 days of history</span>');
   if (d.annualised && d.annualisedOnBankrollPct !== null) ex += '<div class="tiny" style="margin-top:2px">Your loan costs ' + pcp(d.hurdlePct, 1) + ' a year. The wheel is ' + (d.annualisedOnBankrollPct >= d.hurdlePct ? 'ahead by ' : 'behind by ') + num(Math.abs(d.annualisedOnBankrollPct - d.hurdlePct), 1) + ' points (gross, before tax and before the risk of being assigned).</div>';
   if (d.paperLossUsd > 0) ex += kv('Open puts under water', '<span class="neg">−' + usd(d.paperLossUsd) + '</span> <span class="tiny">paper loss if assigned now</span>') + kv('Result after that paper loss', '<span class="' + cls(d.resultAfterPaperUsd) + '">' + usdS(d.resultAfterPaperUsd) + '</span>');
-  var k = h.indexOf('<div style="margin-top:10px"><b>Against the cash it secured</b>');
-  return k < 0 ? h : h.slice(0, k) + ex + h.slice(k);
+  var k = h.indexOf('<div style="margin-top:10px"><b>Against the cash it secured</b>'), wn = (d.warnings && d.warnings.length) ? '<div class="tiny neg" style="margin-top:8px">Some figures could not be worked out and are missing or incomplete: ' + d.warnings.map(esc).join(' · ') + '</div>' : '';
+  return (k < 0 ? h : h.slice(0, k) + ex + h.slice(k)) + wn;
 };
 
 
