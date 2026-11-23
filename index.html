@@ -2480,6 +2480,7 @@ fndRow = function (c, i, held) {
   var tag = hz ? ' <span class="tiny" style="opacity:.8">' + (c.annYieldPct >= hz ? pcp(c.annYieldPct - hz, 1) + ' pts over the ' + pcp(hz, 1) + ' loan cost' : pcp(hz - c.annYieldPct, 1) + ' pts under the ' + pcp(hz, 1) + ' loan cost') + ', before assignment risk</span>' : '';
   return '<div class="row tap" onclick="fndOpen(' + i + ',' + (held ? 1 : 0) + ')"><div class="grow"><div class="t" style="white-space:normal">' + esc(c.asset) + ' ' + num(c.strike, c.strike % 1 ? 2 : 0) + ' put' + top + (c.fitsCash ? '' : ' <span class="badge">NEEDS MORE CASH</span>') + '</div>'
     + '<div class="s" style="white-space:normal">' + dshort(c.expiry) + ' · ' + c.dte + 'd · premium ' + num(c.mid, 2) + ' · <b>' + pcp(c.annYieldPct) + '</b> a year · delta ' + num(c.delta, 2) + ' · ' + pcp(c.pAssignPct) + ' chance of assignment · ' + pcp(c.cushionPct) + ' below the stock</div>'
+    + '<div class="tiny" style="margin-top:2px;white-space:normal">Risk-adjusted yield <b>' + num(c.raYield, 2) + '</b><button class="btn ghost sm" style="padding:0 7px;min-width:0;margin-left:3px" onclick="event.stopPropagation();wxInfo(\'ra\')">i</button> · history: stayed above the strike <b>' + (c.hitRatePct === null || c.hitRatePct === undefined ? 'not enough history' : pcp(c.hitRatePct, 0)) + '</b><button class="btn ghost sm" style="padding:0 7px;min-width:0;margin-left:3px" onclick="event.stopPropagation();wxInfo(\'hit\')">i</button>' + (c.capNote ? ' · <span class="badge WARN">cap</span> ' + esc(c.capNote) : '') + '</div>'
     + '<div class="tiny" style="margin-top:3px">' + (c.check.status === 'OK' ? '' : whBadge(c.check.status) + ' ') + fndEv(c) + (c.earningsDate ? '' : (c.earningsKnown === false ? ' <span class="tiny">earnings date unknown</span>' : ' <span class="tiny">no earnings before expiry</span>')) + tag + '</div></div>'
     + '<div class="r"><b>' + num(c.overall, 0) + '</b><div class="tiny">overall</div></div></div>';
 };
@@ -2487,8 +2488,8 @@ fndRow = function (c, i, held) {
 var WP_SEQ = 0;
 function wpLoad() {
   var seq = ++WP_SEQ, per = WP.p; WP.busy = true; WP.err = '';
-  var tm = setTimeout(function () { if (seq === WP_SEQ && WP.busy) { WP.busy = false; WP.err = 'This is taking too long. Tap retry.'; wpPaint(); } }, 30000);
-  api('wheelperf', { period: per }).then(function (d) { clearTimeout(tm); if (seq !== WP_SEQ) return; WP.d = d; WP.busy = false; wpPaint(); })
+  var tm = setTimeout(function () { if (seq === WP_SEQ && WP.busy) { WP.busy = false; if (!WP.auto) { WP.auto = true; wpLoad(); return; } WP.err = 'This is taking too long. Tap retry.'; wpPaint(); } }, 45000);
+  api('wheelperf', { period: per }).then(function (d) { clearTimeout(tm); if (seq !== WP_SEQ) return; WP.auto = false; WP.d = d; WP.busy = false; wpPaint(); })
     .catch(function (e) { clearTimeout(tm); if (seq !== WP_SEQ) return; WP.busy = false; WP.err = e.message || 'Could not load'; wpPaint(); });
 }
 function wpRetry() { WP.err = ''; WP.d = null; wpPaint(); wpLoad(); }
@@ -2847,6 +2848,157 @@ function repRun(btn) {
   } catch (e) { toast(e.message); busy(btn, false); }
 }
 
+
+/* ===== Portfolio check (monthly / quarterly / yearly) ===== */
+var CK = { d: null, tab: 'month' };
+function ckI(k) { return '<button class="btn ghost sm" style="padding:0 7px;min-width:0;margin-left:4px" onclick="ckInfo(\'' + k + '\')" aria-label="Explain">i</button>'; }
+function ckInfo(k) {
+  var x = CK.d && CK.d.info && CK.d.info[k]; if (!x) return toast('No explanation for this yet.');
+  sheet('<h2>' + esc(x.t) + '</h2>' + kv('What it is', esc(x.what)) + kv('Why it matters', esc(x.why)) + kv('Weight', esc(x.w)) + kv('Data from', esc(x.src)) + (x.cfg ? kv('Setting', esc(x.cfg)) : '') + '<div class="tiny" style="margin-top:8px">You can change the settings in the Config tab.</div>');
+}
+function ckBadge(v) { var c = v === 'EXIT' ? 'RED' : (v === 'REVIEW_HOLD' || v === 'TRIM' || v === 'SWITCH') ? 'WARN' : v === 'HOLD' || v === 'BIG_HOLD' ? 'OK' : 'MANUAL'; var n = { EXIT: 'Exit', REVIEW_HOLD: 'Review conviction', TRIM: 'Trim', SWITCH: 'Switch', BIG_HOLD: 'Big, keep', TINY: 'Tiny', HOLD: 'Hold' }[v] || v; return '<span class="badge ' + c + '">' + esc(n) + '</span>'; }
+var CK_VI = { EXIT: 'verdict', REVIEW_HOLD: 'conv', TRIM: 'cap', SWITCH: 'switch', BIG_HOLD: 'cap', TINY: 'tiny', HOLD: 'verdict' };
+function ckPlace() {
+  var m = $('#main'); if (!m || !isAll() || !RB.d || RB.d.empty) return;
+  if (!$('#ckhost')) m.insertAdjacentHTML('afterbegin', '<div id="ckhost"><div class="card"><h3>Portfolio check</h3><div class="tiny">Loading…</div></div></div>');
+  api('check').then(function (d) { CK.d = d; ckDraw(); }).catch(function (e) { var h = $('#ckhost'); if (h) h.innerHTML = '<div class="card"><h3>Portfolio check</h3><div class="tiny">Could not load: ' + esc(e.message) + ' <button class="btn ghost sm" onclick="ckPlace()">Retry</button></div></div>'; });
+}
+var _drawRebal0 = drawRebal; drawRebal = function (d) { _drawRebal0(d); ckPlace(); };
+function ckTab(t) { CK.tab = t; ckDraw(); }
+function ckDraw() {
+  var d = CK.d, h = $('#ckhost'); if (!d || !h) return;
+  var tabs = [['month', 'Monthly'], ['quarter', 'Quarterly'], ['year', 'Yearly']];
+  var q = d.cadence.quarter, y = d.cadence.year;
+  var o = '<div class="card"><h3>Portfolio check' + ckI('monthly') + '</h3><div class="seg" style="margin:6px 0">' + tabs.map(function (t) { return '<button class="' + (CK.tab === t[0] ? 'on' : '') + '" onclick="ckTab(\'' + t[0] + '\')">' + t[1] + (t[0] === 'month' && d.monthly.count ? ' (' + d.monthly.count + ')' : '') + '</button>'; }).join('') + '</div>';
+  if (q.due) o += '<div class="banner"><div><b>Quarterly review is due</b> · ' + (q.last ? 'last ' + dshort(q.last) : 'none yet') + '.</div></div>';
+  if (y.due) o += '<div class="banner"><div><b>Yearly plan window is open</b> · India year ends ' + dshort(y.fyEnd) + ', last trade day ' + dshort(y.lastTradeDate) + ' (' + y.daysToLastTrade + ' days).</div></div>';
+  o += CK.tab === 'month' ? ckMonth(d) : CK.tab === 'quarter' ? ckQuarter(d) : ckYear(d);
+  o += '</div>';
+  h.innerHTML = o + ckEval(d);
+}
+function ckMonth(d) {
+  var m = d.monthly, o = '<div class="tiny" style="margin-bottom:6px">Only significant things. Stop or snooze only affects this list; the quarterly review always shows everything.' + ckI('snooze') + '</div>';
+  var live = m.flags.filter(function (f) { return !f.snooze; }), sn = m.flags.filter(function (f) { return f.snooze; });
+  if (!live.length) o += '<div class="tiny">Nothing significant this month.</div>';
+  live.forEach(function (f, i) { o += ckFlag(f, i); });
+  if (sn.length) o += '<details style="margin-top:8px"><summary class="tiny">' + sn.length + ' stopped or snoozed</summary>' + sn.map(function (f, i) { return ckFlag(f, 100 + i); }).join('') + '</details>';
+  var c = d.cash;
+  o += '<div class="row" style="margin-top:8px"><div class="grow"><div class="t">Cash ' + pcp(c.sharePct, 0) + ' <span class="badge ' + (c.status === 'ON' ? 'OK' : 'WARN') + '">' + esc(c.status === 'ON' ? 'in band' : c.status.toLowerCase()) + '</span>' + ckI('cash') + '</div><div class="s">' + esc(c.text) + ' (target ' + c.targetPct + '% ± ' + c.bandPts + ')</div></div></div>';
+  return o;
+}
+function ckFlag(f, i) {
+  var sev = f.sev === 'RED' ? 'RED' : f.sev === 'INFO' ? 'MANUAL' : 'WARN', can2 = can('review');
+  var btns = '';
+  if (can2 && f.asset !== undefined) {
+    if (f.snooze) btns = '<button class="btn ghost sm" onclick="ckSnz(' + JSON.stringify(f.asset).replace(/"/g, '&quot;') + ',' + JSON.stringify(f.flag).replace(/"/g, '&quot;') + ',\'CLEAR\',0)">Switch back on</button>';
+    else btns = '<button class="btn ghost sm" onclick="ckSnz(' + JSON.stringify(f.asset).replace(/"/g, '&quot;') + ',' + JSON.stringify(f.flag).replace(/"/g, '&quot;') + ',\'STOP\',0)">Stop</button>' + d0(CK.d.cfg.snoozeDays).map(function (n) { return '<button class="btn ghost sm" onclick="ckSnz(' + JSON.stringify(f.asset).replace(/"/g, '&quot;') + ',' + JSON.stringify(f.flag).replace(/"/g, '&quot;') + ',\'SNOOZE\',' + n + ')">' + n + 'd</button>'; }).join('');
+  }
+  return '<div style="margin:8px 0"><span class="badge ' + sev + '">' + esc(f.asset === 'PORTFOLIO' ? 'Portfolio' : f.asset) + '</span> ' + esc(f.text) + (f.snooze ? ' <span class="tiny">(' + esc(f.snooze.mode === 'STOP' ? 'stopped' : 'snoozed until ' + dshort(f.snooze.until)) + ')</span>' : '') + (btns ? '<div class="btns" style="margin-top:4px">' + btns + '</div>' : '') + '</div>';
+}
+function d0(a) { return a && a.length ? a : [30, 60, 90]; }
+function ckSnz(asset, flag, mode, days) { api('check_snooze', { asset: asset, flag: flag, mode: mode, days: days }).then(function (r) { toast(r.message); clearCache(); return api('check'); }).then(function (d) { CK.d = d; ckDraw(); }).catch(function (e) { toast(e.message); }); }
+function ckRead(btn) { busy(btn, true); api('check_fetch').then(function (r) { toast(r.message || 'Results read.'); clearCache(); return api('check'); }).then(function (d) { CK.d = d; ckDraw(); }).catch(function (e) { busy(btn, false); toast(e.message); }); }
+function ckSave(kind, btn) { busy(btn, true); api('check_confirm', { kind: kind }).then(function (r) { toast(r.message); clearCache(); return api('check'); }).then(function (d) { CK.d = d; ckDraw(); }).catch(function (e) { busy(btn, false); toast(e.message); }); }
+function ckQuarter(d) {
+  var cf = d.cfg, o = '<div class="tiny" style="margin-bottom:6px">Every position, every quarter. Nothing here is hidden by a snooze. At most ' + cf.moves + ' moves are marked "Do now"' + ckI('budget') + ' so you do not overtrade.</div>';
+  var cn = d.counts || {}; o += '<div class="tiny" style="margin-bottom:6px">' + Object.keys(cn).map(function (k) { return cn[k] + ' ' + k; }).join(' · ') + '</div>';
+  var now = d.items.filter(function (i) { return i.doNow; });
+  if (now.length) o += '<div class="card" style="background:var(--card2);margin:6px 0"><b>Do now</b>' + now.map(function (i) { return '<div class="tiny" style="margin-top:4px"><b>' + esc(i.asset) + '</b> ' + esc(i.headline) + '</div>'; }).join('') + '</div>';
+  d.items.forEach(function (it) { o += ckItem(it); });
+  if (d.tiny && d.tiny.count) o += '<div class="tiny" style="margin-top:6px">Tiny means under ' + usd(d.tiny.thresholdUsd) + '. ' + d.tiny.count + ' positions, ' + usd(d.tiny.totalUsd) + ' in total.' + ckI('tiny') + '</div>';
+  o += ckIndia(d) + ckTiles(d);
+  o += '<div class="tiny" style="margin-top:8px">Earnings data for ' + d.earnings.coverage + ' of ' + d.earnings.of + ' stocks' + (d.earnings.lastRead ? ' (read ' + dshort(d.earnings.lastRead) + ')' : '') + '.' + ckI('earn') + '</div>';
+  if (can('review')) o += '<div class="btns"><button class="btn ghost sm" onclick="ckRead(this)">Read results</button><button class="btn sm" onclick="ckSave(\'QUARTER\',this)">Save this review</button></div><div class="tiny">Saving logs each suggestion so you can mark it Followed, Partly or Ignored. Nothing is traded.</div>';
+  return o;
+}
+function ckItem(it) {
+  var o = '<details style="margin:8px 0;border-top:1px solid var(--line,rgba(127,127,127,.2));padding-top:6px"><summary style="cursor:pointer"><b>' + esc(it.asset) + '</b> ' + ckBadge(it.verdict) + (it.doNow ? ' <span class="badge OK">do now</span>' : '') + ' <span class="tiny">' + pcp(it.weightPct, 1) + ' · ' + (it.returnPct === null ? '' : (it.returnPct >= 0 ? '+' : '') + it.returnPct + '%') + (it.score !== null && it.score !== undefined ? ' · score ' + it.score : '') + '</span><div class="tiny" style="white-space:normal">' + esc(it.headline) + '</div></summary>';
+  o += '<div style="margin:6px 0">' + (it.reasons || []).map(function (r) { return '<div class="tiny">• ' + esc(r) + '</div>'; }).join('') + (it.fit ? '<div class="tiny">' + esc(it.fit) + '</div>' : '') + '</div>';
+  o += '<div class="tiny"><b>Why this verdict</b>' + ckI(CK_VI[it.verdict] || 'verdict') + '</div>';
+  (it.data || []).forEach(function (r) { o += kv(esc(r[0]), esc(r[1])); });
+  if (it.parts) { o += '<div class="tiny" style="margin-top:6px"><b>Score parts</b>' + ckI('score') + '</div>'; SC_PARTS.forEach(function (p) { var v = it.parts[p[0]]; if (v === undefined || v === null) return; o += kv(esc(p[1]) + ckI('s_' + (p[0] === 'conviction' ? 'conviction' : p[0])), v); }); }
+  var l = it.lens;
+  if (l && l.has) {
+    o += '<div class="tiny" style="margin-top:6px"><b>Earnings lens</b>' + ckI('expect') + '</div>';
+    if (l.lastQuarter) o += kv('Last quarter', 'actual ' + num(l.lastQuarter.actual, 2) + ' vs estimate ' + num(l.lastQuarter.estimate, 2) + ' (' + (l.lastQuarter.surprisePct > 0 ? '+' : '') + pcp(l.lastQuarter.surprisePct, 1) + ')');
+    if (l.beats) o += kv('Beats', esc(l.beats) + ' quarters');
+    if (l.revision30Pct !== null && l.revision30Pct !== undefined) o += kv('Estimate change, 30 days', pcp(l.revision30Pct, 1));
+    if (l.growthNextYearPct !== null && l.growthNextYearPct !== undefined) o += kv('Growth expected next year', pcp(l.growthNextYearPct, 0));
+    if (l.nextEarnings) o += kv('Next earnings', dshort(l.nextEarnings));
+    if (l.expect12mPct !== null && l.expect12mPct !== undefined) o += kv('Expected 12-month move', pcp(l.expect12mPct, 0)) + kv('Effect on portfolio' + ckI('impact'), (l.impactPts > 0 ? '+' : '') + num(l.impactPts, 2) + ' pts');
+    o += '<div class="tiny">' + esc(l.note || '') + ' Company guidance is not available as data, so estimate changes stand in for it.</div>';
+  }
+  if (it.news && it.news.length) o += '<div class="tiny" style="margin-top:4px">' + it.news.map(function (n) { return '• ' + esc(n); }).join('<br>') + '</div>';
+  if (it.alt) { var a = it.alt; o += '<div class="tiny" style="margin-top:6px"><b>Switch idea' + ckI('switch') + '</b>: ' + esc(a.asset) + ' scores ' + a.score + ', upside ' + pcp(a.upsidePct, 0) + '. Advantage ' + a.advantagePts + ' pts, cost of moving ' + pcp(a.costPct, 2) + ', needs ' + pcp(a.neededPts, 2) + '. ' + (a.blocked ? 'Not enough, so no switch.' : 'Clears both tests.') + '</div>'; }
+  if (it.sell) {
+    var s = it.sell; o += '<div class="tiny" style="margin-top:6px"><b>If you sell</b>: ' + usd(s.sellUsd) + ' · fee about ' + usd(s.feeUsd) + ' · ' + (s.taxable ? 'Indian tax about ' + usd(s.taxUsd) : 'no tax for you') + (s.ltFrom ? ' · long-term from ' + dshort(s.ltFrom) : '') + '</div>';
+    if (isAll()) o += '<div class="btns" style="margin-top:4px">' + s.lines.map(function (ln) { return '<button class="btn ghost sm" onclick="addTx({action:\'SELL\',acct:\'' + esc(ln.acct) + '\',asset:\'' + esc(it.asset) + '\',qty:' + (ln.qty || 0) + '})">Prepare sell ' + esc(ln.acct) + '</button>'; }).join('') + (it.alt ? '<button class="btn ghost sm" onclick="addTx({action:\'BUY\',asset:\'' + esc(it.alt.asset) + '\'})">Prepare buy ' + esc(it.alt.asset) + '</button>' : '') + '</div><div class="tiny">These only fill in the entry form. Nothing is ordered.</div>';
+  }
+  if (it.wheel && (it.verdict === 'TRIM' || it.verdict === 'EXIT')) o += '<div class="tiny" style="margin-top:4px">Wheel stock: sell a covered call first with a strike at or above your cost; a collar is the second choice; selling shares is last.</div>';
+  return o + '</details>';
+}
+function ckIndia(d) {
+  var i = d.india; if (!i) return '';
+  var o = '<div class="card" style="background:var(--card2);margin:8px 0"><b>India optimisation</b>' + ckI('tax') + '<div class="tiny">Year ends ' + dshort(i.fyEnd || '') + ' (' + (i.daysToFyEnd === undefined ? '' : i.daysToFyEnd + ' days') + ') · free long-term gain left ₹' + num(i.headroomInr, 0) + ' of ₹' + num(i.exemptionInr, 0) + '</div>';
+  o += '<div class="tiny">' + (i.loss || 0) + ' loss positions to sell · ' + (i.gain || 0) + ' long-term gains inside the free amount · loss saving about ₹' + num(i.lossSavingInr, 0) + (i.carry ? ' · ' + i.carry + ' carry-forward' : '') + '</div>';
+  (i.top || []).forEach(function (t) { o += '<div class="tiny">• ' + esc(t.asset) + ': ' + esc(t.text) + '</div>'; });
+  if (i.soon && i.soon.length) o += '<div class="tiny" style="margin-top:4px"><b>Turning long-term soon</b> (waiting can lower tax)</div>' + i.soon.map(function (s) { return '<div class="tiny">• ' + esc(s.asset || '') + ' ' + esc(s.text || (s.date ? 'on ' + dshort(s.date) : '')) + '</div>'; }).join('');
+  return o + '<div class="btns"><button class="btn ghost sm" onclick="push(\'harvest\')">Open India tax harvest</button></div></div>';
+}
+function ckTiles(d) {
+  var e = d.estate, v = d.dividends;
+  return '<div class="row"><div class="grow"><div class="t">US estate-tax line' + ckI('estate') + '</div><div class="s">US shares ' + usd(e.usSitusUsd) + ' against a line of ' + usd(e.thresholdUsd) + '. ' + (e.overUsd > 0 ? 'Above it by ' + usd(e.overUsd) + '; possible exposure about ' + usd(e.exposureUsd) + ' at ' + e.ratePct + '%.' : 'Inside it.') + ' ' + esc(e.note) + '</div></div></div>'
+    + '<div class="row"><div class="grow"><div class="t">US dividend tax' + ckI('wht') + '</div><div class="s">Last 12 months ' + usd(v.usDividends12mUsd) + ' paid; about ' + usd(v.estimatedDragUsd) + ' lost to withholding (' + v.assumedPct + '%). ' + esc(v.note) + '</div></div></div>';
+}
+function ckYear(d) {
+  var y = d.cadence.year, p = d.plan, o = '<div class="tiny" style="margin-bottom:6px">India financial year ends ' + dshort(y.fyEnd) + '. The plan window opens early (setting rb_year_open_month) so there are weeks to adjust; trades should be finished by ' + dshort(y.lastTradeDate) + ' (' + y.daysToLastTrade + ' days left)' + ckI('year') + '.</div>';
+  if (!y.open && y.opensOn) o += '<div class="banner"><div>The window opens on ' + dshort(y.opensOn) + '. You can still read the plan below.</div></div>';
+  o += '<div class="tiny"><b>Order of steps</b>: tax-free sells (US shares, crypto) → India losses → India long-term gains inside the free ₹' + num(p.exemptionInr, 0) + ' → short-term gains wait.' + ckI('tax') + '</div>';
+  if (!p.steps.length) o += '<div class="tiny" style="margin:6px 0">No sells planned this year.</div>';
+  p.steps.forEach(function (s, i) { o += '<div style="margin:8px 0"><b>' + (i + 1) + '. ' + esc(s.asset) + '</b> ' + ckBadge(s.verdict) + ' <span class="tiny">sell ' + usd(s.sellUsd) + ' · fee ' + usd(s.feeUsd) + ' · tax ' + usd(s.taxUsd) + '</span><div class="tiny">' + esc(s.note) + '</div>' + (can('review') ? '<div class="btns" style="margin-top:4px">' + (s.lines || []).map(function (ln) { return '<button class="btn ghost sm" onclick="addTx({action:\'SELL\',acct:\'' + esc(ln.acct) + '\',asset:\'' + esc(s.asset) + '\',qty:' + (ln.qty || 0) + '})">Prepare sell ' + esc(ln.acct) + '</button>'; }).join('') + '</div>' : '') + '</div>'; });
+  if (p.waits.length) o += '<div class="tiny" style="margin-top:6px"><b>Wait</b></div>' + p.waits.map(function (w) { return '<div class="tiny">• ' + esc(w.asset) + ': ' + esc(w.text) + '</div>'; }).join('');
+  o += '<div class="row"><div class="grow"><div class="t">Plan total</div><div class="s">Sell ' + usd(p.totals.sellUsd) + ' · fees ' + usd(p.totals.feeUsd) + ' · tax ' + usd(p.totals.taxUsd) + '</div></div></div>';
+  if (p.uses && p.uses.length) o += '<div class="tiny" style="margin-top:6px"><b>Where the money could go</b>: ' + p.uses.map(function (u) { return esc(u.asset) + ' (score ' + u.score + ')'; }).join(', ') + '</div>';
+  if (can('review')) o += '<div class="btns"><button class="btn sm" onclick="ckSave(\'YEAR\',this)">Save yearly plan</button></div><div class="tiny">Alerts come when the window opens, with 30 days left and with 10 days left.</div>';
+  return o;
+}
+function ckEval(d) {
+  var e = d.eval; if (!e || !e.rows || !e.rows.length) return '<div class="card"><h3>Did the suggestions work?' + ckI('eval') + '</h3><div class="tiny">Nothing logged yet. Save a quarterly review to start the record.</div></div>';
+  var t = e.tally || {}, o = '<div class="card"><h3>Did the suggestions work?' + ckI('eval') + '</h3><div class="tiny" style="margin-bottom:6px">' + esc(e.note) + '</div>';
+  o += '<div class="tiny">' + Object.keys(t).filter(function (k) { return t[k]; }).map(function (k) { return t[k] + ' ' + k.replace(/([A-Z])/g, ' $1').toLowerCase(); }).join(' · ') + '</div>';
+  e.rows.slice(0, 15).forEach(function (r) {
+    o += '<div class="row"><div class="grow"><div class="t">' + esc(r.asset) + ' ' + ckBadge(r.verdict) + ' <span class="tiny">' + dshort(r.date) + '</span></div><div class="s" style="white-space:normal">' + esc(r.text || '') + '</div><div class="s" style="white-space:normal"><b>' + esc((r.label || '').replace(/_/g, ' ').toLowerCase()) + '</b> ' + esc(r.note || '') + (r.reason ? ' · reason: ' + esc(r.reason) : '') + '</div>'
+      + (r.answer === 'PENDING' && can('review') ? '<div class="btns" style="margin-top:4px"><button class="btn ghost sm" onclick="ckAns(\'' + esc(r.id) + '\')">Answer</button></div>' : '') + '</div></div>';
+  });
+  return o + '</div>';
+}
+function ckAns(id) {
+  sheet('<h2>Did you follow this?</h2><p class="mut sm">Your answer is judged later against what happened and what it cost, and whether your reasoning was sound.</p><label class="field"><span>Reason (if you did not follow it)</span><select id="cka"><option value="">None</option><option value="TAX">Tax</option><option value="CONVICTION">My conviction</option><option value="DATA">Data was wrong or missing</option><option value="TIMING">Timing</option><option value="OTHER">Other</option></select></label>'
+    + '<div class="btns"><button class="btn" onclick="ckAnsGo(\'' + id + '\',\'FOLLOWED\')">Followed</button><button class="btn ghost" onclick="ckAnsGo(\'' + id + '\',\'PARTIAL\')">Partly</button><button class="btn ghost" onclick="ckAnsGo(\'' + id + '\',\'IGNORED\')">Ignored</button></div>');
+}
+function ckAnsGo(id, ans) { api('check_answer', { id: id, answer: ans, reason: ($('#cka') || {}).value || '' }).then(function (r) { toast(r.message); closeSheet(); clearCache(); return api('check'); }).then(function (d) { CK.d = d; ckDraw(); }).catch(function (e) { toast(e.message); }); }
+
+/* ===== Pre-trade check inside Add entry ===== */
+var _ptT = null;
+function ptHint() {
+  clearTimeout(_ptT);
+  _ptT = setTimeout(function () {
+    var xs = $('#xs'), xa = $('#xa'), xq = $('#xq'), xp = $('#xp'); if (!xs || !xa || !xq || !isAll()) return;
+    var host = $('#xpt'); if (!host) { var g = $('#xh') || $('#xg'); if (!g) return; g.insertAdjacentHTML('afterend', '<div id="xpt"></div>'); host = $('#xpt'); }
+    if (!xs.value.trim() || !xa.value || !(Number(xq.value) > 0)) { host.innerHTML = ''; return; }
+    api('pretrade', { acct: xa.value, asset: xs.value.trim().toUpperCase(), action: S.txSide === 'SELL' ? 'SELL' : 'BUY', qty: xq.value, price: xp ? xp.value : '' }).then(function (r) {
+      var h2 = $('#xpt'); if (!h2) return;
+      h2.innerHTML = r && r.lines && r.lines.length ? '<div class="card" style="margin:8px 0;background:var(--card2)"><b>Before you save</b>' + r.lines.map(function (l) { return '<div style="margin:4px 0"><span class="badge ' + (l.s === 'WARN' ? 'WARN' : 'OK') + '">' + (l.s === 'WARN' ? 'check' : 'ok') + '</span> <b>' + esc(l.k) + '</b> <span class="tiny">' + esc(l.v) + (l.t ? ' · ' + esc(l.t) : '') + '</span></div>'; }).join('') + '</div>' : '';
+    }).catch(function () { var h3 = $('#xpt'); if (h3) h3.innerHTML = ''; });
+  }, 600);
+}
+var _txHint0 = txHint; txHint = function () { _txHint0(); ptHint(); };
+
+
+/* wheel finder explanations */
+var WX_INFO = { ra: ['Risk-adjusted yield', 'Premium as a share of the strike, multiplied by (1 minus the delta) and by 250 over (days + 5). A put that pays well, is unlikely to be assigned and is short-dated scores higher. It is an index for comparing candidates with each other, not a percent you earn.', 'Used as a tie-break next to the overall score. Adapted from the open-source alpacahq options-wheel.'],
+  hit: ['History: stayed above the strike', 'Looks at every start day in your stored price history and checks whether, after the same number of days, the price was still above this strike (relative to the start price). Needs about 40 windows; otherwise it says not enough history. Past behaviour is a guide only, and the windows overlap.', 'Not part of the overall score. It is a reality check against the option price. Adapted from wheeldesk.'] };
+function wxInfo(k) { var x = WX_INFO[k]; sheet('<h2>' + esc(x[0]) + '</h2>' + kv('What it is', esc(x[1])) + kv('How it is used', esc(x[2])) + '<div class="tiny" style="margin-top:8px">Caps on how many wheel stocks and contracts per stock are in Config (wheel_max_stocks, wheel_one_contract_per_stock).</div>'); }
 </script>
 </body>
 </html>
