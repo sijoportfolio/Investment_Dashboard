@@ -268,7 +268,7 @@ var PENDING = 0;
 document.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('button.btn,button.chip'); if (b) { S.lastBtn = b; S.lastBtnAt = Date.now(); } }, true);
 function api(action, params, opts) {
   opts = opts || {}; var btn = (S.lastBtn && Date.now() - S.lastBtnAt < 400 && action !== 'live' && document.body.contains(S.lastBtn)) ? S.lastBtn : null; if (btn) btn.classList.add('working');
-  var quietCall = (action === 'live' || action === 'status');
+  var quietCall = (action === 'live' || action === 'status' || S.pfQuiet === true); S.pfQuiet = false;
   if (!quietCall) { PENDING++; $('#prog').classList.add('on'); }
   return fetch(S.api, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ key: S.key, action: action, params: params || {} }) })
     .then(function (r) { return r.json(); }).then(function (j) {
@@ -2999,6 +2999,52 @@ var _txHint0 = txHint; txHint = function () { _txHint0(); ptHint(); };
 var WX_INFO = { ra: ['Risk-adjusted yield', 'Premium as a share of the strike, multiplied by (1 minus the delta) and by 250 over (days + 5). A put that pays well, is unlikely to be assigned and is short-dated scores higher. It is an index for comparing candidates with each other, not a percent you earn.', 'Used as a tie-break next to the overall score. Adapted from the open-source alpacahq options-wheel.'],
   hit: ['History: stayed above the strike', 'Looks at every start day in your stored price history and checks whether, after the same number of days, the price was still above this strike (relative to the start price). Needs about 40 windows; otherwise it says not enough history. Past behaviour is a guide only, and the windows overlap.', 'Not part of the overall score. It is a reality check against the option price. Adapted from wheeldesk.'] };
 function wxInfo(k) { var x = WX_INFO[k]; sheet('<h2>' + esc(x[0]) + '</h2>' + kv('What it is', esc(x[1])) + kv('How it is used', esc(x[2])) + '<div class="tiny" style="margin-top:8px">Caps on how many wheel stocks and contracts per stock are in Config (wheel_max_stocks, wheel_one_contract_per_stock).</div>'); }
+
+/* ===== Background loading of the other screens, in the order you tend to open them ===== */
+var PF = { run: 0, pause: 0, since: 0, on: true };
+var PF_ACTS = [['overview', 'home'], ['holdings', 'holdings'], ['wheel', 'wheel'], ['watchlist', 'watchlist'], ['rebalance', 'rebal'], ['alerts', 'alerts'], ['income', 'income'], ['transactions', 'tx'], ['tax', 'tax'], ['options', 'options'], ['cash', 'cash'], ['closed', 'holdings'], ['planrisk', 'plan'], ['harvest', 'harvest'], ['thesis', 'thesis'], ['taxfile', 'taxfile'], ['people', 'people']];
+var PF_OWNER_ONLY = { wheel: 1, watchlist: 1, rebalance: 1, options: 1, cash: 1, planrisk: 1, harvest: 1, thesis: 1, taxfile: 1, people: 1 };
+var PF_FRESH = 10 * 60 * 1000;
+function pfUse() { try { return JSON.parse(LS.get('pv8use') || '[]'); } catch (e) { return []; } }
+function pfNote(name) {
+  if (!name || !S.who) return; var u = pfUse(), prev = u.length ? u[u.length - 1] : null;
+  u.push([name, Date.now(), prev && Date.now() - prev[1] < 30 * 60 * 1000 ? prev[0] : '']); if (u.length > 400) u = u.slice(-400);
+  try { LS.set('pv8use', JSON.stringify(u)); } catch (e) { }
+}
+/* score = how often and how recently you open it, plus extra if you usually open it right after the screen you are on */
+function pfScore(screen, cur, u) {
+  var now = Date.now(), s = 0; u.forEach(function (r) { if (r[0] !== screen) return; var age = (now - r[1]) / 864e5; s += Math.pow(0.5, age / 14); if (cur && r[2] === cur) s += 0.8; });
+  return s;
+}
+function pfOrder() {
+  var u = pfUse(), cur = S.tab || 'home', own = isAll();
+  return PF_ACTS.map(function (a, i) { return { act: a[0], screen: a[1], sc: pfScore(a[1], cur, u) - i * 0.001 }; })
+    .filter(function (x) { return own || !PF_OWNER_ONLY[x.act]; }).sort(function (a, b) { return b.sc - a.sc; });
+}
+function pfOk() {
+  if (!PF.on || !S.who || kid() || document.hidden) return false;
+  var c = navigator.connection; if (c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || ''))) return false; return true;
+}
+function pfStart() {
+  if (PF.run) return; PF.run = 1;
+  setTimeout(function () {
+    if (!pfOk()) { PF.run = 0; return; }
+    var q = pfOrder().filter(function (x) { var k = x.act, t = S.memT[k]; return !(S.mem[k] !== undefined && t && t >= PF.since && Date.now() - t < PF_FRESH); });
+    (function next() {
+      if (!q.length || !pfOk()) { PF.run = 0; return; }
+      if (Date.now() < PF.pause) return setTimeout(next, 800);
+      var x = q.shift(); S.pfQuiet = true;
+      load(x.act, {}, function () { }, false, true).then(function () { setTimeout(next, 250); }, function () { setTimeout(next, 250); });
+    })();
+  }, 1200);
+}
+['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) { document.addEventListener(ev, function () { PF.pause = Date.now() + 2500; }, { passive: true }); });
+var _go0 = go; go = function (tab, arg) { pfNote(tab); return _go0(tab, arg); };
+var _push0 = push; push = function (name, arg) { pfNote(name); return _push0(name, arg); };
+var _start0 = start; start = function (first) { _start0(first); pfStart(); };
+document.addEventListener('visibilitychange', function () { if (!document.hidden && S.who && Date.now() - (S.last || 0) > 5 * 60 * 1000) pfStart(); });
+if (typeof refreshAfterUpdate === 'function') { var _rau0 = refreshAfterUpdate; refreshAfterUpdate = function () { PF.since = Date.now(); var r = _rau0.apply(this, arguments); PF.run = 0; pfStart(); return r; }; }
+
 </script>
 </body>
 </html>
