@@ -2080,7 +2080,7 @@ function drawRebal(d) {
   else h += '<div class="tiny" style="margin:6px 0">No stock scores ' + o.compellingScore + ' or more with an intact thesis, so nothing is compelling enough to concentrate on right now.</div>';
   h += '<div class="card" style="margin:8px 0;background:var(--card2)"><b>Wait</b><div class="tiny">' + esc(o.wait.cashNote) + '</div>' + (can('review') ? '<div class="btns"><button class="btn ghost sm" onclick="rbChoose(\'WAIT\')">Wait this month</button></div>' : '') + '</div></div>';
   /* opportunities */
-  if (d.opps.length) h += '<div class="card"><h3>Best opportunities now</h3><div class="tiny" style="margin-bottom:4px">Thesis intact only. Score 0 to 100 from your buy price, upside, conviction, distance below the high and the 200-day average, analyst rating and P/E against its own history. India is left out: it gets no new money.</div>' + d.opps.map(function (x) { return '<div class="row tap" onclick="scoreCard(\'' + esc(x.asset) + '\')"><div class="avatar" style="font-size:11px">' + esc(x.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(x.asset) + (x.held ? '' : ' <span class="badge MANUAL">not held</span>') + (x.overGroup ? ' <span class="badge WARN">theme over target</span>' : '') + (x.onWheel ? ' <span class="badge">wheel</span>' : '') + '</div><div class="s">' + esc(x.region) + ' · ' + esc(x.group) + (x.zone ? ' · ' + esc(x.zone) : '') + '</div></div><div class="r"><div class="t num"><b>' + x.score + '</b> ›</div></div></div>'; }).join('') + '<div class="tiny">Tap a stock to see exactly how its score was built, and to change the weights.</div></div>';
+  if (d.opps.length) h += '<div class="card"><h3>Best opportunities now</h3><div class="tiny" style="margin-bottom:4px">Thesis intact only. Score 0 to 100 from your buy price, upside, conviction, distance below the high and the 200-day average, analyst rating and P/E against its own history. India is left out: it gets no new money.</div>' + d.opps.map(function (x) { return '<div class="row tap" onclick="scoreCard(\'' + esc(x.asset) + '\')"><div class="avatar" style="font-size:11px">' + esc(x.asset.slice(0, 4)) + '</div><div class="grow"><div class="t">' + esc(x.asset) + (x.held ? '' : ' <span class="badge MANUAL">not held</span>') + (x.overGroup ? ' <span class="badge WARN">theme over target</span>' : '') + (x.onWheel ? ' <span class="badge">wheel</span>' : '') + (x.thin ? ' <span class="badge WARN">thin data ' + x.coveragePct + '%</span>' : '') + '</div><div class="s">' + esc(x.region) + ' · ' + esc(x.group) + (x.zone ? ' · ' + esc(x.zone) : '') + '</div></div><div class="r"><div class="t num"><b>' + x.score + '</b> ›</div></div></div>'; }).join('') + '<div class="tiny">Tap a stock to see exactly how its score was built, and to change the weights.</div></div>';
   /* sells */
   var hasSell = (d.sells && d.sells.length) || (d.thesisSells && d.thesisSells.length);
   h += '<div class="card"><h3>Sell suggestions</h3>';
@@ -2104,12 +2104,14 @@ function scoreCard(asset) {
   var d = RB.d, x = null; (d.opps || []).concat(d.noAddOpps || []).forEach(function (o) { if (o.asset === asset) x = o; }); if (!x) return toast('No score for ' + asset);
   SCF = { asset: asset, w: JSON.parse(JSON.stringify(d.scoreCfg.w)), compelling: d.scoreCfg.compelling, x: x }; drawScoreCard();
 }
-function scoreCalc() { var x = SCF.x, n0 = 0, den = 0; SC_PARTS.forEach(function (p) { var v = x.parts[p[0]]; if (v === undefined || v === null) return; var w = Number(SCF.w[p[0]]) || 0; n0 += v * w; den += w; }); return den > 0 ? Math.round(n0 / den) : null; }
+function d0cfg() { return (RB.d && RB.d.scoreCfg && RB.d.scoreCfg.minCov) || 60; }
+function scoreCov() { var x = SCF.x, tot = 0, den = 0; SC_PARTS.forEach(function (p) { var w = Number(SCF.w[p[0]]) || 0; tot += w; var v = x.parts[p[0]]; if (v !== undefined && v !== null) den += w; }); return tot > 0 ? den / tot : 0; }
+function scoreCalc() { var x = SCF.x, n0 = 0, den = 0; SC_PARTS.forEach(function (p) { var v = x.parts[p[0]]; if (v === undefined || v === null) return; var w = Number(SCF.w[p[0]]) || 0; n0 += v * w; den += w; }); if (!(den > 0)) return null; var c = scoreCov(); return Math.round(c * (n0 / den) + (1 - c) * 50); }
 function drawScoreCard() {
   var x = SCF.x, den = 0; SC_PARTS.forEach(function (p) { if (x.parts[p[0]] !== undefined && x.parts[p[0]] !== null) den += Number(SCF.w[p[0]]) || 0; });
   var rows = SC_PARTS.map(function (p) { var k = p[0], v = x.parts[k], has = v !== undefined && v !== null, w = Number(SCF.w[k]) || 0;
     return '<tr><td><b>' + p[1] + '</b><div class="tiny">' + p[2](x.raw || {}) + '</div><div class="tiny">' + p[3] + '</div></td><td class="r num">' + (has ? v : '–') + '</td><td class="r"><input type="number" inputmode="decimal" min="0" max="100" value="' + w + '" style="width:54px;text-align:right" oninput="SCF.w[\'' + k + '\']=this.value;scoreRefresh()"></td><td class="r num">' + (has && den > 0 ? num(v * w / den, 1) : (has ? '0' : 'left out')) + '</td></tr>'; }).join('');
-  sheet('<h2>' + esc(x.asset) + ' · score <span id="scTot">' + scoreCalc() + '</span></h2><p class="mut sm">Each factor is marked 0 to 100. The score is the weighted average of the factors that have data; a factor with no data is left out, not counted as zero. Compelling means ' + SCF.compelling + ' or more.</p><table class="t"><tr><th>Factor</th><th class="r">Mark</th><th class="r">Weight</th><th class="r">Points</th></tr>' + rows + '<tr class="tot"><td>Score</td><td></td><td></td><td class="r num"><b id="scTot2">' + scoreCalc() + '</b></td></tr></table>'
+  sheet('<h2>' + esc(x.asset) + ' · score <span id="scTot">' + scoreCalc() + '</span></h2><p class="mut sm">Each factor is marked 0 to 100. The score is the weighted average of the factors that have data, pulled towards a neutral 50 for the weight that is missing. This stock has data for <b>' + Math.round(scoreCov() * 100) + '%</b> of the weight' + (x.thin ? ' <span class="badge WARN">thin: never chosen as best</span>' : '') + ' (minimum ' + (d0cfg()) + '%). Compelling means ' + SCF.compelling + ' or more.</p><table class="t"><tr><th>Factor</th><th class="r">Mark</th><th class="r">Weight</th><th class="r">Points</th></tr>' + rows + '<tr class="tot"><td>Score</td><td></td><td></td><td class="r num"><b id="scTot2">' + scoreCalc() + '</b></td></tr></table>'
     + '<div class="tiny" style="margin-top:6px">Changing a weight here previews the score. Save to make it your setting for every screen.</div><div class="btns">' + (can('settings') ? '<button class="btn" onclick="scoreSave()">Save weights</button>' : '') + '<button class="btn ghost" onclick="closeSheet()">Close</button></div>');
 }
 function scoreRefresh() { var t = scoreCalc(); ['scTot', 'scTot2'].forEach(function (id) { var e = document.getElementById(id); if (e) e.textContent = t; }); }
@@ -3044,6 +3046,158 @@ var _push0 = push; push = function (name, arg) { pfNote(name); return _push0(nam
 var _start0 = start; start = function (first) { _start0(first); pfStart(); };
 document.addEventListener('visibilitychange', function () { if (!document.hidden && S.who && Date.now() - (S.last || 0) > 5 * 60 * 1000) pfStart(); });
 if (typeof refreshAfterUpdate === 'function') { var _rau0 = refreshAfterUpdate; refreshAfterUpdate = function () { PF.since = Date.now(); var r = _rau0.apply(this, arguments); PF.run = 0; pfStart(); return r; }; }
+
+
+/* ===== Wheel and Watchlist: visual dashboard, live prices, readable comments ===== */
+var WX = { q: {}, at: 0, tried: 0, open: {}, busy: false };
+function wxIds() {
+  var ids = {}, add = function (a) { if (a) ids[a] = 1; };
+  if (WH.d) { (WH.d.puts || []).forEach(function (p) { add(p.asset); }); (WH.d.calls || []).forEach(function (p) { add(p.asset); }); (WH.d.shortlist || []).forEach(function (s) { add(s.asset); }); }
+  if (WL.d) (WL.d.rows || []).forEach(function (r) { add(r.asset); });
+  return Object.keys(ids).slice(0, 80);
+}
+function wxLive(done) {
+  var ids = wxIds(); if (!ids.length || WX.busy || !isAll()) return; WX.busy = true; WX.tried = Date.now(); S.pfQuiet = true;
+  api('live', { assets: ids }).then(function (d) { WX.busy = false; if (d && d.quotes) { for (var k in d.quotes) WX.q[k] = d.quotes[k]; } WX.at = (d && d.at) || Date.now(); if (done) done(); }).catch(function () { WX.busy = false; });
+}
+function wxQ(asset, ccy) { var q = WX.q[asset]; if (!q || !(q.p > 0)) return null; if (ccy && q.ccy && q.ccy !== ccy) return null; return q; }
+function wxStamp() { return WX.at ? new Date(WX.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''; }
+/* put the live price into the data the existing cards read */
+function wxApplyOpt(o) {
+  var q = wxQ(o.asset, o.ccy); if (!q) return; o.price = q.p; o.priceStale = false; o.priceLive = true; o.dayPct = q.prev ? (q.p / q.prev - 1) * 100 : null;
+  if (o.strike > 0) o.moneynessPct = (q.p / o.strike - 1) * 100; if (o.breakEven > 0) o.toBreakEvenPct = Math.round((q.p / o.breakEven - 1) * 1000) / 10;
+}
+function wxApplyStock(s, highKey) {
+  var q = wxQ(s.asset, s.ccy); if (!q) return; s.price = q.p; s.priceStale = false; s.priceLive = true; s.dayPct = q.prev ? (q.p / q.prev - 1) * 100 : null;
+  var hi = s[highKey]; if (hi > 0) { var dist = (q.p / hi - 1) * 100; if (s.zone !== 'BELOW ZONE' || dist > 0) s.zone = q.p <= hi ? 'IN ZONE' : (q.p <= hi * 1.1 ? 'NEAR' : 'ABOVE'); if (s.abovePct !== undefined) s.abovePct = dist > 0 ? Math.round(dist * 10) / 10 : null; if (s.distPct !== undefined) s.distPct = Math.round(dist * 10) / 10; }
+  if (s.target > 0) s.upsidePct = (s.target / q.p - 1) * 100;
+}
+function wxApplyAll() {
+  if (WH.d) { (WH.d.puts || []).forEach(wxApplyOpt); (WH.d.calls || []).forEach(wxApplyOpt); (WH.d.shortlist || []).forEach(function (s) { wxApplyStock(s, 'ownBelow'); }); }
+  if (WL.d) (WL.d.rows || []).forEach(function (r) { wxApplyStock(r, 'high'); });
+}
+/* ---- small visual pieces ---- */
+function wxCol(t) { return t === 'bad' ? 'var(--neg,#d33)' : t === 'warn' ? 'var(--warn,#e8a317)' : 'var(--acc,#0a8)'; }
+function wxRing(pct, big, sub, tone, title) {
+  var p = Math.max(0, Math.min(100, Number(pct) || 0));
+  return '<div style="text-align:center;min-width:0"><div class="tiny" style="margin-bottom:2px">' + title + '</div><div style="position:relative;width:78px;height:78px;margin:0 auto"><svg viewBox="0 0 36 36" width="78" height="78"><circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--card2,#8883)" stroke-width="4"/><circle cx="18" cy="18" r="15.9" fill="none" stroke="' + wxCol(tone) + '" stroke-width="4" stroke-linecap="round" stroke-dasharray="' + p.toFixed(1) + ' 100" transform="rotate(-90 18 18)"/></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px">' + big + '</div></div><div class="tiny" style="white-space:normal;margin-top:2px">' + sub + '</div></div>';
+}
+function wxTiles(d) {
+  var i = d.idle || {}, g = d.guides || {}, pm = d.premium, util = (i.utilPct === undefined || i.utilPct === null) ? 0 : i.utilPct;
+  var t1 = g.commitPct > 0 && util > g.commitPct ? 'bad' : (g.commitPct > 0 && util > g.commitPct * 0.85 ? 'warn' : 'ok');
+  var capCash = (d.capital || []).reduce(function (s, c) { return s + (c.cashUsd || 0); }, 0), need = d.assignAll ? d.assignAll.cashUsd : 0, cov = capCash > 0 ? need / capCash * 100 : 0;
+  var h = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">';
+  h += wxRing(util, pcp(util, 0), 'free ' + usd(d.freeUsd) + (g.commitPct > 0 ? '<br>guide ' + pcp(g.commitPct, 0) : ''), t1, 'In puts');
+  if (pm) h += wxRing(pm.targetUsd > 0 ? pm.pctOfTarget : (pm.monthUsd > 0 ? 100 : 0), usd(pm.monthUsd), pm.targetUsd > 0 ? 'of ' + usd(pm.targetUsd) : 'this month', pm.targetUsd > 0 && pm.pctOfTarget < 50 ? 'warn' : 'ok', 'Premium kept');
+  else h += wxRing(0, '–', 'no data', 'warn', 'Premium kept');
+  var y = i.yieldPct, yt = i.targetPct;
+  h += wxRing(yt > 0 && y !== undefined && y !== null ? y / yt * 100 : 0, y === undefined || y === null ? '–' : pcp(y, 0), 'a year' + (yt > 0 ? '<br>aim ' + pcp(yt, 0) : ''), yt > 0 && y < yt ? 'warn' : 'ok', 'Cash yield');
+  h += wxRing(Math.min(100, cov), d.puts && d.puts.length ? pcp(cov, 0) : '–', d.puts && d.puts.length ? 'of cash if all assigned' : 'no open puts', cov > 100 ? 'bad' : cov > 80 ? 'warn' : 'ok', 'Worst case');
+  return h + '</div>';
+}
+function wxCushion(o, isCall) {
+  if (!(o.price > 0) || !(o.strike > 0)) return null;
+  return isCall ? (o.strike / o.price - 1) * 100 : (o.price / o.strike - 1) * 100;
+}
+function wxTone(c) { return c === null ? 'warn' : c >= 10 ? 'ok' : c >= 3 ? 'warn' : 'bad'; }
+function wxLadderRow(o, i, isCall) {
+  var c = wxCushion(o, isCall), tone = wxTone(c), pr = o.price > 0 ? o.price : o.strike, vals = [o.strike, pr].concat(!isCall && o.breakEven > 0 ? [o.breakEven] : []);
+  var lo = Math.min.apply(null, vals) * 0.94, hi = Math.max.apply(null, vals) * 1.06, sp = hi - lo || 1, x = function (v) { return Math.max(0, Math.min(100, (v - lo) / sp * 100)); };
+  var zone = isCall ? '<div style="position:absolute;left:' + x(o.strike) + '%;right:0;top:0;bottom:0;background:var(--neg,#d33);opacity:.14;border-radius:0 5px 5px 0"></div>' : '<div style="position:absolute;left:0;width:' + x(o.strike) + '%;top:0;bottom:0;background:var(--neg,#d33);opacity:.14;border-radius:5px 0 0 5px"></div>';
+  var bar = '<div style="position:relative;height:12px;border-radius:6px;background:var(--card2,#8882);margin:6px 0 2px">' + zone
+    + '<div style="position:absolute;left:' + x(o.strike) + '%;top:-3px;bottom:-3px;width:2px;background:var(--text,#888)"></div>'
+    + (!isCall && o.breakEven > 0 ? '<div style="position:absolute;left:' + x(o.breakEven) + '%;top:1px;bottom:1px;width:2px;background:var(--info,#46c);opacity:.8"></div>' : '')
+    + '<div style="position:absolute;left:calc(' + x(pr) + '% - 6px);top:0;width:12px;height:12px;border-radius:50%;background:' + wxCol(tone) + ';border:2px solid var(--card,#fff);box-sizing:border-box"></div></div>';
+  var day = o.dayPct !== null && o.dayPct !== undefined ? ' <span class="' + cls(o.dayPct) + '">' + pc(o.dayPct, 1) + '</span>' : '';
+  return '<div class="tap" style="padding:8px 0;border-top:1px solid rgba(127,127,127,.15)" onclick="' + (isCall ? 'whCallOpen' : 'whPutOpen') + '(' + i + ')"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><div><b>' + esc(o.asset) + '</b> <span class="tiny">' + num(o.strike, o.strike % 1 ? 2 : 0) + (isCall ? ' call' : ' put') + ' · ' + o.contracts + 'x</span></div><div class="tiny"><b style="color:' + wxCol(tone) + '">' + (c === null ? 'no price' : (c >= 0 ? '' : '−') + pcp(Math.abs(c), 1) + (isCall ? ' to strike' : ' cushion')) + '</b> · ' + o.dte + 'd' + (o.priceLive ? ' <span style="color:var(--acc)">●</span>' : '') + '</div></div>' + bar
+    + '<div class="tiny" style="display:flex;justify-content:space-between"><span>' + (isCall ? '' : 'break-even ' + num(o.breakEven, 2) + ' · ') + 'strike ' + num(o.strike, 2) + '</span><span>stock ' + (o.price > 0 ? num(o.price, 2) : '–') + day + '</span></div></div>';
+}
+function wxLadder(d) {
+  var P = d.puts || [], C = d.calls || []; if (!P.length && !C.length) return '<div class="card"><h3>Open positions</h3><div class="tiny">No open puts or calls.</div></div>';
+  return '<div class="card"><h3>Open positions · ' + (P.length + C.length) + '</h3><div class="tiny">The dot is the stock price now. Red zone = where the option would be exercised. Blue tick = break-even. Dot colour: green above 10% away, amber 3 to 10%, red under 3%.</div>'
+    + P.map(function (p, i) { return wxLadderRow(p, i, false); }).join('') + C.map(function (p, i) { return wxLadderRow(p, i, true); }).join('') + '</div>';
+}
+function wxTimeline(d) {
+  var it = (d.puts || []).map(function (p) { return { a: p.asset + ' ' + num(p.strike, 0) + 'P', dte: p.dte, t: 'put' }; }).concat((d.calls || []).map(function (p) { return { a: p.asset + ' ' + num(p.strike, 0) + 'C', dte: p.dte, t: 'call' }; }));
+  if (!it.length) return '';
+  var mx = Math.max(45, Math.max.apply(null, it.map(function (x) { return x.dte; })) + 3); it.sort(function (a, b) { return a.dte - b.dte; });
+  var ticks = [0, 15, 30, 45, 60, 90].filter(function (t) { return t <= mx; });
+  var h = '<div class="card"><h3>Expiries</h3><div style="position:relative;height:92px;margin:4px 8px 0"><div style="position:absolute;left:0;right:0;top:44px;height:3px;background:var(--card2,#8883);border-radius:2px"></div>';
+  ticks.forEach(function (t) { h += '<div style="position:absolute;left:' + (t / mx * 100) + '%;top:38px;height:15px;width:1px;background:rgba(127,127,127,.5)"></div><div class="tiny" style="position:absolute;left:' + (t / mx * 100) + '%;top:54px;transform:translateX(-50%)">' + (t === 0 ? 'today' : t + 'd') + '</div>'; });
+  it.forEach(function (x, k) { var up = k % 2 === 0, lx = Math.min(94, Math.max(6, x.dte / mx * 100)); h += '<div style="position:absolute;left:' + lx + '%;top:' + (up ? 14 : 66) + 'px;transform:translateX(-50%);font-size:10px;white-space:nowrap;text-align:center">' + esc(x.a) + '</div><div style="position:absolute;left:calc(' + (x.dte / mx * 100) + '% - 6px);top:40px;width:12px;height:12px;border-radius:' + (x.t === 'put' ? '50%' : '3px') + ';background:' + (x.t === 'put' ? 'var(--info,#46c)' : 'var(--acc,#0a8)') + ';border:2px solid var(--card,#fff);box-sizing:border-box"></div>'; });
+  return h + '</div><div class="tiny">Circle = put, square = covered call. Days from today.</div></div>';
+}
+function wxExposure(d) {
+  var by = {}, tot = 0; (d.puts || []).forEach(function (p) { var v = p.collateralUsd || 0; by[p.asset] = (by[p.asset] || 0) + v; tot += v; });
+  var ks = Object.keys(by).sort(function (a, b) { return by[b] - by[a]; }); if (!ks.length) return '';
+  var cash = (d.capital || []).reduce(function (s, c) { return s + (c.cashUsd || 0); }, 0), mx = by[ks[0]];
+  return '<div class="card"><h3>Cash tied up by stock</h3>' + ks.map(function (k) { return '<div style="margin:6px 0"><div style="display:flex;justify-content:space-between"><b>' + esc(k) + '</b><span class="tiny">' + usd(by[k]) + (cash > 0 ? ' · ' + pcp(by[k] / cash * 100, 0) + ' of cash' : '') + '</span></div><div style="height:9px;border-radius:5px;background:var(--card2,#8882)"><div style="height:9px;border-radius:5px;width:' + (by[k] / mx * 100).toFixed(0) + '%;background:var(--info,#46c)"></div></div></div>'; }).join('') + '<div class="tiny">If every put were assigned you would own these shares. Detail and limit checks are under "Details and finders".</div></div>';
+}
+function wxActions(d) {
+  var a = [], g = d.guides || {}, i = d.idle || {};
+  (d.puts || []).forEach(function (p, k) { var c = wxCushion(p, false); if (p.verdict && p.verdict !== 'HOLD') a.push({ s: 2, t: p.asset + ' ' + num(p.strike, 0) + ' put: ' + String(p.verdict).toLowerCase(), f: 'whPutOpen(' + k + ')' }); else if (c !== null && c < 3) a.push({ s: 3, t: p.asset + ' put: stock is only ' + pcp(Math.max(0, c), 1) + ' above the strike', f: 'whPutOpen(' + k + ')' }); else if (p.dte <= 5) a.push({ s: 1, t: p.asset + ' put expires in ' + p.dte + ' days', f: 'whPutOpen(' + k + ')' }); });
+  (d.calls || []).forEach(function (p, k) { var c = wxCushion(p, true); if (c !== null && c < 2) a.push({ s: 3, t: p.asset + ' call: stock is within ' + pcp(Math.max(0, c), 1) + ' of the strike', f: 'whCallOpen(' + k + ')' }); });
+  if (g.commitPct > 0 && i.utilPct > g.commitPct) a.push({ s: 2, t: 'Puts tie up ' + pcp(i.utilPct, 0) + ' of cash, above your ' + pcp(g.commitPct, 0) + ' guide', f: '' });
+  var held = {}; (d.puts || []).forEach(function (p) { held[p.asset] = 1; });
+  (d.shortlist || []).forEach(function (s) { if (s.zone === 'IN ZONE' && !held[s.asset] && s.stage === 'WATCHING') a.push({ s: 1, t: s.asset + ' is at your price and has no put', f: 'wxScrollTo(\'' + esc(s.asset) + '\')' }); });
+  a.sort(function (x, y) { return y.s - x.s; });
+  if (!a.length) return '<div class="card" style="border-left:4px solid var(--acc,#0a8)"><b>Nothing needs you right now.</b></div>';
+  return '<div class="card" style="border-left:4px solid ' + wxCol(a[0].s >= 3 ? 'bad' : 'warn') + '"><h3>Look at today</h3>' + a.slice(0, 3).map(function (x) { return '<div class="' + (x.f ? 'tap ' : '') + '" style="margin:6px 0"' + (x.f ? ' onclick="' + x.f + '"' : '') + '>• ' + esc(x.t) + '</div>'; }).join('') + (a.length > 3 ? '<div class="tiny">+ ' + (a.length - 3) + ' more in the details</div>' : '') + '</div>';
+}
+function wxScrollTo(id) { var e = document.getElementById('wxs_' + id); if (e) e.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+/* ---- stock cards shared by Wheel and Watchlist ---- */
+function wxNoteHtml(asset, txt) {
+  if (!txt) return ''; var t = String(txt), long = t.length > 90;
+  return '<details style="margin-top:6px"' + (WX.open[asset] ? ' open' : '') + ' ontoggle="WX.open[\'' + esc(asset) + '\']=this.open"><summary class="tiny" style="cursor:pointer;list-style:none;white-space:normal">💬 ' + esc(long ? t.slice(0, 90) + '… ' : t) + (long ? '<u>read</u>' : '') + '</summary>' + (long ? '<div class="sm" style="white-space:pre-wrap;margin-top:4px">' + esc(t) + '</div>' : '') + '</details>';
+}
+function wxCard(w, idp) {
+  var hi = w.high || w.ownBelow || 0, pr = w.price, tone = !hi || pr === null ? 'warn' : pr <= hi ? 'ok' : pr <= hi * 1.1 ? 'warn' : 'bad';
+  var vals = [pr, hi, w.target, w.week52Low, w.week52High].filter(function (v) { return v > 0; }); var lo = Math.min.apply(null, vals) * 0.95, mx = Math.max.apply(null, vals) * 1.03, sp = mx - lo || 1, x = function (v) { return Math.max(0, Math.min(100, (v - lo) / sp * 100)); };
+  var bar = pr > 0 ? '<div style="position:relative;height:12px;border-radius:6px;background:var(--card2,#8882);margin:10px 0 2px">' + (hi > 0 ? '<div style="position:absolute;left:0;width:' + x(hi) + '%;top:0;bottom:0;background:var(--acc,#0a8);opacity:.2;border-radius:6px 0 0 6px"></div><div style="position:absolute;left:' + x(hi) + '%;top:-3px;bottom:-3px;width:2px;background:var(--acc,#0a8)"></div>' : '') + (w.target > 0 ? '<div style="position:absolute;left:' + x(w.target) + '%;top:2px;bottom:2px;width:2px;background:var(--info,#46c)"></div>' : '') + '<div style="position:absolute;left:calc(' + x(pr) + '% - 6px);top:0;width:12px;height:12px;border-radius:50%;background:' + wxCol(tone) + ';border:2px solid var(--card,#fff);box-sizing:border-box"></div></div><div class="tiny" style="display:flex;justify-content:space-between"><span>' + (hi > 0 ? '<span style="color:var(--acc)">▌</span> your price ' + num(hi, 2) : 'no buy price set') + '</span><span>' + (w.target > 0 ? '<span style="color:var(--info)">▌</span> analyst ' + num(w.target, 0) + (w.upsidePct !== null && w.upsidePct !== undefined ? ' (' + pc(w.upsidePct, 0) + ')' : '') : '') + '</span></div>' : '<div class="tiny" style="margin-top:6px">No price yet.</div>';
+  var zt = hi > 0 && pr > 0 ? (pr <= hi ? 'AT YOUR PRICE' : pcp((pr / hi - 1) * 100, 0) + ' above') : (pr > 0 ? 'NO BUY PRICE' : 'NO PRICE');
+  var day = w.dayPct !== null && w.dayPct !== undefined ? ' <span class="' + cls(w.dayPct) + '" style="font-size:12px">' + pc(w.dayPct, 1) + '</span>' : '';
+  return '<div class="card" id="' + (idp || 'wxs_') + esc(w.asset) + '"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div style="min-width:0"><b>' + esc(w.asset) + '</b> <span class="badge ' + (tone === 'ok' ? 'OK' : tone === 'warn' ? 'WARN' : '') + '">' + esc(zt) + '</span>' + (w.held ? ' <span class="badge MANUAL">held</span>' : '') + (w.stage && w.stage !== 'WATCHING' ? ' <span class="badge MANUAL">' + esc(String(w.stage).toLowerCase()) + '</span>' : '') + '<div class="tiny" style="white-space:normal">' + [esc(w.name || ''), esc(w.sector || w.group || '')].filter(Boolean).join(' · ') + '</div></div><div style="text-align:right"><div class="num" style="font-weight:700;font-size:17px">' + (pr === null || pr === undefined ? '–' : num(pr, 2)) + day + '</div><div class="tiny">' + (w.priceLive ? '<span style="color:var(--acc)">●</span> live ' + wxStamp() : w.priceStale ? '<span class="neg">old price</span>' : 'last close') + '</div></div></div>' + bar
+    + '<div class="tiny" style="margin-top:6px">' + (w.conviction !== null && w.conviction !== undefined ? 'Conviction <b>' + w.conviction + '/10</b>' : 'No conviction set') + (w.priority ? ' · ' + esc(w.priority) : '') + (w.oneContract && w.oneContract.cashUsd ? ' · 1 contract ' + usd(w.oneContract.cashUsd) : '') + '</div>' + wxNoteHtml(w.asset, w.notes)
+    + (can('settings') && w.onWheel !== undefined ? '<div style="display:flex;gap:8px;align-items:center;margin-top:8px"><button class="btn ghost sm" onclick="wlEdit(\'' + esc(w.asset) + '\')">Edit</button><button class="tgl ' + (w.onWheel ? 'on' : '') + '" role="switch" aria-checked="' + (w.onWheel ? 'true' : 'false') + '" aria-label="Wheel list" onclick="wlWheelAsk(\'' + esc(w.asset) + '\',' + (w.onWheel ? 'false' : 'true') + ')"><i></i></button><span class="tiny">Wheel</span></div>' : '') + '</div>';
+}
+function wxWatchRow(asset) { var r = null; if (WL.d) (WL.d.rows || []).forEach(function (x) { if (x.asset === asset) r = x; }); return r; }
+function wxWheelCards(d) {
+  var rows = (d.shortlist || []).map(function (s) { var w = wxWatchRow(s.asset), o = {}, k; for (k in s) o[k] = s[k]; if (w) { o.notes = w.notes; o.target = w.target; o.upsidePct = w.upsidePct; o.week52Low = w.week52Low; o.week52High = w.week52High; o.high = w.high || s.ownBelow; o.priority = w.priority; o.held = w.held; o.onWheel = w.onWheel; o.sector = w.sector; o.priceLive = s.priceLive; o.dayPct = s.dayPct; if (o.priceLive && o.target > 0) o.upsidePct = (o.target / o.price - 1) * 100; } o.high = o.high || s.ownBelow; if (!o.target && s.analystTarget) { o.target = Number(s.analystTarget); if (o.price > 0) o.upsidePct = (o.target / o.price - 1) * 100; } return o; });
+  if (!rows.length) return '';
+  var near = rows.filter(function (r) { return r.zone === 'IN ZONE'; }).length;
+  return '<div class="card"><h3>Wheel stocks · ' + rows.length + '</h3><div class="tiny">' + near + ' at your price. Green line = the most you will pay; blue line = analyst target; dot = price' + (WX.at ? ' (live ' + wxStamp() + ')' : '') + '.</div></div>' + rows.map(wxCard).join('')
+    + (can('settings') ? '<div class="btns" style="margin:0 0 10px"><button class="btn ghost sm" onclick="whAdd()">+ Add a stock</button></div>' : '');
+}
+var _drawWheelWx = drawWheel;
+drawWheel = function (d) {
+  WH.d = d; wxApplyAll(); _drawWheelWx(d);
+  var m = $('#main'); if (!m || !isAll()) return;
+  /* old cards go behind one tap, the performance card and anything that needs you stay up */
+  var keep = [], old = [].slice.call(m.children);
+  old.forEach(function (e) { var t = (e.querySelector && e.querySelector('h3') || {}).textContent || ''; if (/^Wheel performance|^Needs you today|^Confirm what happened|^Act today/.test(t) || e.id === 'wperf') keep.push(e); });
+  var det = document.createElement('details'); det.className = 'card'; det.id = 'wxdet'; det.innerHTML = '<summary style="cursor:pointer"><b>Details and finders</b> <span class="tiny">put finder, covered-call finder, limits check, results, cash by account</span></summary>';
+  old.forEach(function (e) { if (keep.indexOf(e) < 0) det.appendChild(e); });
+  var dash = document.createElement('div'); dash.id = 'wxdash';
+  dash.innerHTML = '<div class="card">' + wxTiles(d) + (WX.at ? '<div class="tiny" style="margin-top:6px;text-align:center"><span style="color:var(--acc)">●</span> live prices ' + wxStamp() + '</div>' : '') + '</div>' + wxActions(d);
+  m.insertBefore(dash, m.firstChild);
+  var after = document.createElement('div'); after.innerHTML = wxLadder(d) + wxTimeline(d) + wxExposure(d) + wxWheelCards(d);
+  keep.forEach(function (e) { m.appendChild(e); }); while (after.firstChild) m.appendChild(after.firstChild); m.appendChild(det);
+  if (!WL.d) { load('watchlist', {}, function (w) { WL.d = w; }, false, true).then(function () { if (S.tab === 'wheel' && !S.stack.length && WL.d) { wxApplyAll(); drawWheel(WH.d); } }, function () { }); }
+  if (!WX.tried || Date.now() - WX.tried > 45000) wxLive(function () { if (S.tab === 'wheel' && !S.stack.length && WH.d && !$('#sheet').classList.contains('on')) drawWheel(WH.d); });
+};
+/* Watchlist: same card, live prices, readable comments, summary strip on top */
+var _drawWatchWx = drawWatch;
+drawWatch = function (d) {
+  WL.d = d; wxApplyAll(); _drawWatchWx(d);
+  var m = $('#main'); if (!m) return;
+  var rows = d.rows || [], ready = rows.filter(function (r) { return r.zone === 'IN ZONE' || r.zone === 'BELOW ZONE'; }).length, near = rows.filter(function (r) { return r.zone === 'NEAR'; }).length, nW = rows.filter(function (r) { return r.onWheel; }).length;
+  var ups = rows.filter(function (r) { return r.upsidePct !== null && r.upsidePct !== undefined; }), avg = ups.length ? ups.reduce(function (s, r) { return s + r.upsidePct; }, 0) / ups.length : null;
+  m.insertAdjacentHTML('afterbegin', '<div class="card"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">' + wxRing(rows.length ? ready / rows.length * 100 : 0, ready, 'of ' + rows.length + ' stocks', ready ? 'ok' : 'warn', 'At your price') + wxRing(rows.length ? near / rows.length * 100 : 0, near, 'within 10%', 'warn', 'Close') + wxRing(rows.length ? nW / rows.length * 100 : 0, nW, 'on the wheel', 'ok', 'Wheel') + wxRing(avg === null ? 0 : Math.max(0, Math.min(100, avg * 2)), avg === null ? '–' : pc(avg, 0), 'average to target', avg !== null && avg < 5 ? 'warn' : 'ok', 'Upside') + '</div>' + (WX.at ? '<div class="tiny" style="margin-top:6px;text-align:center"><span style="color:var(--acc)">●</span> live prices ' + wxStamp() + '</div>' : '') + '</div>');
+  if (!WX.tried || Date.now() - WX.tried > 45000) wxLive(function () { if (S.tab === 'watchlist' && !S.stack.length && WL.d && !$('#sheet').classList.contains('on')) drawWatch(WL.d); });
+};
+var _wlCardWx = wlCard;
+wlCard = function (w) { return wxCard(w, 'wlc_'); };
+setInterval(function () { if (document.hidden || !S.who || $('#sheet').classList.contains('on') || S.stack.length) return; if (S.tab === 'wheel' && WH.d) wxLive(function () { drawWheel(WH.d); }); else if (S.tab === 'watchlist' && WL.d) wxLive(function () { drawWatch(WL.d); }); }, 90000);
 
 </script>
 </body>
